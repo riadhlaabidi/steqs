@@ -1,0 +1,2 @@
+# steqs
+Simple text editor.
