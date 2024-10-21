@@ -8,7 +8,7 @@ vpath %.h $(INCLUDE_DIR)
 vpath %.c $(SRC_DIR)
 
 steqs: $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $(OBJECTS)
 
 $(OBJECTS): append_buffer.h util.h
 

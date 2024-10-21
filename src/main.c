@@ -7,15 +7,30 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
+#define STEQS_VERSION "0.0.1"
+#define STEQS_NAME "STEQS"
+
 typedef struct {
     struct termios default_settings;
-    int rows;
-    int cols;
+    int cx;   // cursor column position
+    int cy;   // cursor row position
+    int rows; // terminal window height
+    int cols; // terminal window width
 } editor_config;
+
+enum keys {
+    ARROW_LEFT = 1000,
+    ARROW_RIGHT,
+    ARROW_UP,
+    ARROW_DOWN,
+    PAGE_UP,
+    PAGE_DOWN
+};
 
 editor_config ec;
 
@@ -26,6 +41,25 @@ void draw_row_tildes(abuf *buf)
     for (i = 0; i < ec.rows; i++) {
         buf_append(buf, "~", 1);
 
+        if (i == 1) {
+            char welcome[30];
+            int welcome_len =
+                snprintf(welcome, sizeof(welcome), " %s - Version %s",
+                         STEQS_NAME, STEQS_VERSION);
+            int padding = (ec.cols - welcome_len - 1) / 2;
+
+            while (padding > 0) {
+                buf_append(buf, " ", 1);
+                padding--;
+            }
+
+            buf_append(buf, welcome, welcome_len);
+        }
+
+        // Erase from the active position to the end of line.
+        // default param 0
+        buf_append(buf, "\x1b[K", 3);
+
         if (i < ec.rows - 1) {
             buf_append(buf, "\r\n", 2);
         }
@@ -35,10 +69,22 @@ void draw_row_tildes(abuf *buf)
 void refresh_screen()
 {
     abuf buf = ABUF_INIT;
-    buf_append(&buf, "\x1b[2J", 4);
+
+    // Hide the cursor to get rid of flickering effect
+    buf_append(&buf, "\x1b[?25l", 6);
+
+    // Move cursor to the home position
     buf_append(&buf, "\x1b[H", 3);
+
     draw_row_tildes(&buf);
-    buf_append(&buf, "\x1b[H", 3);
+
+    // Move cursor to the home position
+    char move_cmd[32];
+    snprintf(move_cmd, sizeof(move_cmd), "\x1b[%d;%dH", ec.cy + 1, ec.cx + 1);
+    buf_append(&buf, move_cmd, strlen(move_cmd));
+
+    // Show the cursor
+    buf_append(&buf, "\x1b[?25h", 6);
 
     write(STDOUT_FILENO, buf.buf, buf.len);
     buf_free(&buf);
@@ -75,7 +121,7 @@ void enable_raw_mode()
     }
 }
 
-char read_key()
+int read_key()
 {
     int read_res;
     char c;
@@ -86,17 +132,100 @@ char read_key()
         }
     }
 
-    return c;
+    if (c == '\x1b') {
+        char seq[3];
+
+        if (read(STDIN_FILENO, &seq[0], 1) != 1) {
+            return '\x1b';
+        }
+        if (read(STDIN_FILENO, &seq[1], 1) != 1) {
+            return '\x1b';
+        }
+
+        if (seq[0] == '[') {
+            if (seq[1] >= '0' && seq[1] <= '9') {
+                if (read(STDIN_FILENO, &seq[2], 1) != 1) {
+                    return '\x1b';
+                }
+                if (seq[2] == '~') {
+                    switch (seq[1]) {
+                        case '5':
+                            return PAGE_UP;
+                        case '6':
+                            return PAGE_DOWN;
+                    }
+                }
+            } else {
+                switch (seq[1]) {
+                    case 'A':
+                        return ARROW_UP;
+                    case 'B':
+                        return ARROW_DOWN;
+                    case 'C':
+                        return ARROW_RIGHT;
+                    case 'D':
+                        return ARROW_LEFT;
+                }
+            }
+        }
+
+        return '\x1b';
+    } else {
+        return c;
+    }
+}
+
+void move_cursor(int key)
+{
+    switch (key) {
+        case ARROW_UP:
+            if (ec.cy > 0) {
+                ec.cy--;
+            }
+            break;
+        case ARROW_DOWN:
+            if (ec.cy < ec.rows - 1) {
+                ec.cy++;
+            }
+            break;
+        case ARROW_LEFT:
+            if (ec.cx > 0) {
+                ec.cx--;
+            }
+            break;
+        case ARROW_RIGHT:
+            if (ec.cx < ec.cols - 1) {
+                ec.cx++;
+            }
+            break;
+    }
 }
 
 void process_key()
 {
-    char c = read_key();
+    int c = read_key();
 
     switch (c) {
-    case CTRL_KEY('q'):
-        exit(EXIT_SUCCESS);
-        break;
+        case CTRL_KEY('q'):
+            write(STDOUT_FILENO, "\x1b[2J", 4);
+            write(STDOUT_FILENO, "\x1b[H", 3);
+            exit(EXIT_SUCCESS);
+            break;
+        case ARROW_UP:
+        case ARROW_DOWN:
+        case ARROW_LEFT:
+        case ARROW_RIGHT:
+            move_cursor(c);
+            break;
+        case PAGE_UP:
+        case PAGE_DOWN:
+            {
+                int i = ec.rows;
+                while (i--) {
+                    move_cursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+                }
+            }
+            break;
     }
 }
 
@@ -150,6 +279,9 @@ int get_window_size(int *rows, int *cols)
 
 void init_editor()
 {
+    ec.cx = 0;
+    ec.cy = 0;
+
     if (get_window_size(&ec.rows, &ec.cols) == -1) {
         die("Unable to get window size");
     }
