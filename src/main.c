@@ -29,7 +29,10 @@ enum keys {
     ARROW_UP,
     ARROW_DOWN,
     PAGE_UP,
-    PAGE_DOWN
+    PAGE_DOWN,
+    HOME,
+    END,
+    DEL
 };
 
 editor_config ec;
@@ -56,7 +59,7 @@ void draw_row_tildes(abuf *buf)
             buf_append(buf, welcome, welcome_len);
         }
 
-        // Erase from the active position to the end of line.
+        // erase from the active position to the end of line.
         // default param 0
         buf_append(buf, "\x1b[K", 3);
 
@@ -149,10 +152,20 @@ int read_key()
                 }
                 if (seq[2] == '~') {
                     switch (seq[1]) {
+                        case '1':
+                            return HOME;
+                        case '4':
+                            return END;
+                        case '3':
+                            return DEL;
                         case '5':
                             return PAGE_UP;
                         case '6':
                             return PAGE_DOWN;
+                        case '7':
+                            return HOME;
+                        case '8':
+                            return END;
                     }
                 }
             } else {
@@ -165,6 +178,19 @@ int read_key()
                         return ARROW_RIGHT;
                     case 'D':
                         return ARROW_LEFT;
+                    case 'H':
+                        return HOME;
+                    case 'F':
+                        return END;
+                }
+            }
+        } else {
+            if (seq[0] == 'O') {
+                switch (seq[1]) {
+                    case 'H':
+                        return HOME;
+                    case 'F':
+                        return END;
                 }
             }
         }
@@ -207,7 +233,10 @@ void process_key()
 
     switch (c) {
         case CTRL_KEY('q'):
+            // Erase from the active position to the end of line.
+            // default param 0
             write(STDOUT_FILENO, "\x1b[2J", 4);
+            // Move cursor to the home position
             write(STDOUT_FILENO, "\x1b[H", 3);
             exit(EXIT_SUCCESS);
             break;
@@ -225,6 +254,12 @@ void process_key()
                     move_cursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
                 }
             }
+            break;
+        case HOME:
+            ec.cx = 0;
+            break;
+        case END:
+            ec.cx = ec.cols - 1;
             break;
     }
 }
