@@ -1,14 +1,18 @@
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
+#define _POSIX_C_SOURCE >= 200809L
+#define _GNU_SOURCE
 
 #include "append_buffer.h"
 #include "util.h"
 
 #include <errno.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -16,11 +20,20 @@
 #define STEQS_NAME "STEQS"
 
 typedef struct {
+    int size;
+    char *chars;
+} text_row;
+
+typedef struct {
     struct termios default_settings;
     int cx;   // cursor column position
     int cy;   // cursor row position
     int rows; // terminal window height
     int cols; // terminal window width
+    int num_trows;
+    text_row *t_rows;
+    int row_offset;
+    int col_offset;
 } editor_config;
 
 enum keys {
@@ -41,22 +54,34 @@ editor_config ec;
 void draw_row_tildes(abuf *buf)
 {
     int i;
+
     for (i = 0; i < ec.rows; i++) {
-        buf_append(buf, "~", 1);
-
-        if (i == 1) {
-            char welcome[30];
-            int welcome_len =
-                snprintf(welcome, sizeof(welcome), " %s - Version %s",
-                         STEQS_NAME, STEQS_VERSION);
-            int padding = (ec.cols - welcome_len - 1) / 2;
-
-            while (padding > 0) {
-                buf_append(buf, " ", 1);
-                padding--;
+        int file_row = i + ec.row_offset;
+        if (ec.num_trows > file_row) {
+            int len = ec.t_rows[file_row].size - ec.col_offset;
+            if (len < 0) {
+                len = 0;
             }
+            if (len > ec.cols) {
+                len = ec.cols;
+            }
+            buf_append(buf, &ec.t_rows[file_row].chars[ec.col_offset], len);
+        } else {
+            buf_append(buf, "~", 1);
+            if (ec.num_trows == 0 && i == ec.rows / 3) {
+                char welcome[30];
+                int welcome_len =
+                    snprintf(welcome, sizeof(welcome), " %s - Version %s",
+                             STEQS_NAME, STEQS_VERSION);
+                int padding = (ec.cols - welcome_len - 1) / 2;
 
-            buf_append(buf, welcome, welcome_len);
+                while (padding > 0) {
+                    buf_append(buf, " ", 1);
+                    padding--;
+                }
+
+                buf_append(buf, welcome, welcome_len);
+            }
         }
 
         // erase from the active position to the end of line.
@@ -69,8 +94,25 @@ void draw_row_tildes(abuf *buf)
     }
 }
 
+void scroll()
+{
+    if (ec.cy < ec.row_offset) {
+        ec.row_offset = ec.cy;
+    }
+    if (ec.cy >= ec.row_offset + ec.rows) {
+        ec.row_offset = ec.cy - ec.rows + 1;
+    }
+    if (ec.cx < ec.col_offset) {
+        ec.col_offset = ec.cx;
+    }
+    if (ec.cx >= ec.col_offset + ec.cols) {
+        ec.col_offset = ec.cx - ec.cols + 1;
+    }
+}
+
 void refresh_screen()
 {
+    scroll();
     abuf buf = ABUF_INIT;
 
     // Hide the cursor to get rid of flickering effect
@@ -83,7 +125,8 @@ void refresh_screen()
 
     // Move cursor to the home position
     char move_cmd[32];
-    snprintf(move_cmd, sizeof(move_cmd), "\x1b[%d;%dH", ec.cy + 1, ec.cx + 1);
+    snprintf(move_cmd, sizeof(move_cmd), "\x1b[%d;%dH",
+             (ec.cy - ec.row_offset) + 1, (ec.cx - ec.col_offset) + 1);
     buf_append(&buf, move_cmd, strlen(move_cmd));
 
     // Show the cursor
@@ -203,6 +246,12 @@ int read_key()
 
 void move_cursor(int key)
 {
+    text_row *row = NULL;
+
+    if (ec.cy < ec.num_trows) {
+        row = &ec.t_rows[ec.cy];
+    }
+
     switch (key) {
         case ARROW_UP:
             if (ec.cy > 0) {
@@ -210,7 +259,7 @@ void move_cursor(int key)
             }
             break;
         case ARROW_DOWN:
-            if (ec.cy < ec.rows - 1) {
+            if (ec.cy < ec.num_trows) {
                 ec.cy++;
             }
             break;
@@ -220,10 +269,22 @@ void move_cursor(int key)
             }
             break;
         case ARROW_RIGHT:
-            if (ec.cx < ec.cols - 1) {
+            if (row && ec.cx < row->size) {
                 ec.cx++;
             }
             break;
+    }
+
+    // change cursor pos to the end of the current row
+    // if the actual cursor pos is bigger than row's length.
+    if (ec.cy < ec.num_trows) {
+        row = &ec.t_rows[ec.cy];
+    }
+
+    int row_len = row ? row->size : 0;
+
+    if (ec.cx > row_len) {
+        ec.cx = row_len;
     }
 }
 
@@ -316,16 +377,63 @@ void init_editor()
 {
     ec.cx = 0;
     ec.cy = 0;
+    ec.num_trows = 0;
+    ec.t_rows = NULL;
+    ec.row_offset = 0;
+    ec.col_offset = 0;
 
     if (get_window_size(&ec.rows, &ec.cols) == -1) {
         die("Unable to get window size");
     }
 }
 
-int main()
+void append_text_row(char *content, size_t len)
+{
+    ec.t_rows = realloc(ec.t_rows, sizeof(text_row) * (ec.num_trows + 1));
+
+    // Last index
+    int idx = ec.num_trows;
+
+    ec.t_rows[idx].size = len;
+    ec.t_rows[idx].chars = malloc(len + 1);
+
+    memcpy(ec.t_rows[idx].chars, content, len);
+    ec.t_rows[idx].chars[len] = '\0';
+
+    ec.num_trows++;
+}
+
+void open_file(char *filename)
+{
+    FILE *fp = fopen(filename, "r");
+
+    if (!fp) {
+        die("Failed to open file");
+    }
+
+    char *line = NULL;
+    size_t linecap = 0;
+    ssize_t line_len;
+
+    while ((line_len = getline(&line, &linecap, fp)) != -1) {
+        while (line_len > 0 &&
+               (line[line_len - 1] == '\n' || line[line_len - 1] == '\r')) {
+            line_len--;
+        }
+        append_text_row(line, line_len);
+    }
+    FREE(line);
+    fclose(fp);
+}
+
+int main(int argc, char *argv[])
 {
     enable_raw_mode();
     init_editor();
+
+    if (argc >= 2) {
+        open_file(argv[1]);
+    }
 
     while (1) {
         refresh_screen();
