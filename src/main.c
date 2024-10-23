@@ -18,16 +18,20 @@
 
 #define STEQS_VERSION "0.0.1"
 #define STEQS_NAME "STEQS"
+#define TAB_STOP 8
 
 typedef struct {
     int size;
-    char *chars;
+    int render_size;
+    char *content;
+    char *to_render;
 } text_row;
 
 typedef struct {
     struct termios default_settings;
     int cx;   // cursor column position
     int cy;   // cursor row position
+    int rx;   // cursor column position in rendered text
     int rows; // terminal window height
     int cols; // terminal window width
     int num_trows;
@@ -58,14 +62,14 @@ void draw_row_tildes(abuf *buf)
     for (i = 0; i < ec.rows; i++) {
         int file_row = i + ec.row_offset;
         if (ec.num_trows > file_row) {
-            int len = ec.t_rows[file_row].size - ec.col_offset;
+            int len = ec.t_rows[file_row].render_size - ec.col_offset;
             if (len < 0) {
                 len = 0;
             }
             if (len > ec.cols) {
                 len = ec.cols;
             }
-            buf_append(buf, &ec.t_rows[file_row].chars[ec.col_offset], len);
+            buf_append(buf, &ec.t_rows[file_row].to_render[ec.col_offset], len);
         } else {
             buf_append(buf, "~", 1);
             if (ec.num_trows == 0 && i == ec.rows / 3) {
@@ -96,17 +100,18 @@ void draw_row_tildes(abuf *buf)
 
 void scroll()
 {
+    ec.rx = ec.cx;
     if (ec.cy < ec.row_offset) {
         ec.row_offset = ec.cy;
     }
     if (ec.cy >= ec.row_offset + ec.rows) {
         ec.row_offset = ec.cy - ec.rows + 1;
     }
-    if (ec.cx < ec.col_offset) {
-        ec.col_offset = ec.cx;
+    if (ec.rx < ec.col_offset) {
+        ec.col_offset = ec.rx;
     }
-    if (ec.cx >= ec.col_offset + ec.cols) {
-        ec.col_offset = ec.cx - ec.cols + 1;
+    if (ec.rx >= ec.col_offset + ec.cols) {
+        ec.col_offset = ec.rx - ec.cols + 1;
     }
 }
 
@@ -126,7 +131,7 @@ void refresh_screen()
     // Move cursor to the home position
     char move_cmd[32];
     snprintf(move_cmd, sizeof(move_cmd), "\x1b[%d;%dH",
-             (ec.cy - ec.row_offset) + 1, (ec.cx - ec.col_offset) + 1);
+             (ec.cy - ec.row_offset) + 1, (ec.rx - ec.col_offset) + 1);
     buf_append(&buf, move_cmd, strlen(move_cmd));
 
     // Show the cursor
@@ -385,6 +390,7 @@ void init_editor()
 {
     ec.cx = 0;
     ec.cy = 0;
+    ec.rx = 0;
     ec.num_trows = 0;
     ec.t_rows = NULL;
     ec.row_offset = 0;
@@ -395,6 +401,35 @@ void init_editor()
     }
 }
 
+void update_text_row(text_row *row)
+{
+    int tabs = 0;
+    int i;
+
+    for (i = 0; i < tabs; i++) {
+        if (row->content[i] == '\t') {
+            tabs++;
+        }
+    }
+
+    free(row->to_render);
+    row->to_render = malloc(row->size + tabs * (TAB_STOP - 1) + 1);
+
+    int idx = 0;
+    for (i = 0; i < row->size; i++) {
+        if (row->content[i] == '\t') {
+            while (idx % TAB_STOP != 0) {
+                row->to_render[idx++] = ' ';
+            }
+        } else {
+            row->to_render[idx++] = row->content[i];
+        }
+    }
+
+    row->to_render[idx] = '\0';
+    row->render_size = idx;
+}
+
 void append_text_row(char *content, size_t len)
 {
     ec.t_rows = realloc(ec.t_rows, sizeof(text_row) * (ec.num_trows + 1));
@@ -403,10 +438,14 @@ void append_text_row(char *content, size_t len)
     int idx = ec.num_trows;
 
     ec.t_rows[idx].size = len;
-    ec.t_rows[idx].chars = malloc(len + 1);
+    ec.t_rows[idx].content = malloc(len + 1);
 
-    memcpy(ec.t_rows[idx].chars, content, len);
-    ec.t_rows[idx].chars[len] = '\0';
+    memcpy(ec.t_rows[idx].content, content, len);
+
+    ec.t_rows[idx].content[len] = '\0';
+    ec.t_rows[idx].render_size = 0;
+    ec.t_rows[idx].to_render = NULL;
+    update_text_row(&ec.t_rows[idx]);
 
     ec.num_trows++;
 }
