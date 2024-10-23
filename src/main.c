@@ -266,11 +266,19 @@ void move_cursor(int key)
         case ARROW_LEFT:
             if (ec.cx > 0) {
                 ec.cx--;
+            } else if (ec.cy > 0) {
+                ec.cy--;
+                ec.cx = ec.t_rows[ec.cy].size;
             }
             break;
         case ARROW_RIGHT:
             if (row && ec.cx < row->size) {
                 ec.cx++;
+            } else {
+                if (row && ec.cx == row->size) {
+                    ec.cy++;
+                    ec.cx = 0;
+                }
             }
             break;
     }
