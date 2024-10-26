@@ -1,16 +1,13 @@
 CC = gcc
-CFLAGS = -I$(INCLUDE_DIR) -Wall -Wextra -pedantic -std=c99
-INCLUDE_DIR = include
+CFLAGS = -Wall -Wextra -pedantic -std=c99
 SRC_DIR = src
-OBJECTS = main.o append_buffer.o
+OBJECTS = main.o append_buffer.o editor.o kbd.o
 
-vpath %.h $(INCLUDE_DIR)
+vpath %.h $(SRC_DIR)
 vpath %.c $(SRC_DIR)
 
 steqs: $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $(OBJECTS)
-
-$(OBJECTS): append_buffer.h util.h
 
 .PHONY: clean
 clean:
