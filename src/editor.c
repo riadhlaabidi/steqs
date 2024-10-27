@@ -6,6 +6,7 @@
 #include "editor.h"
 #include "append_buffer.h"
 #include "kbd.h"
+#include "status_bar.h"
 #include "util.h"
 
 #include <stdio.h>
@@ -28,10 +29,14 @@ void init_editor(void)
     ec.t_rows = NULL;
     ec.row_offset = 0;
     ec.col_offset = 0;
+    ec.filename = NULL;
 
     if (get_window_size(&ec.rows, &ec.cols) == -1) {
         DIE("Unable to get window size");
     }
+
+    // leave one line for status line
+    ec.rows--;
 }
 
 int get_cursor_pos(int *rows, int *cols)
@@ -148,6 +153,9 @@ int get_window_size(int *rows, int *cols)
 
 void open_file(char *filename)
 {
+    FREE(ec.filename);
+    ec.filename = strdup(filename);
+
     FILE *fp = fopen(filename, "r");
 
     if (!fp) {
@@ -255,9 +263,7 @@ void draw_row_tildes(abuf *buf)
         // default param 0
         buf_append(buf, "\x1b[K", 3);
 
-        if (i < ec.rows - 1) {
-            buf_append(buf, "\r\n", 2);
-        }
+        buf_append(buf, "\r\n", 2);
     }
 }
 
@@ -313,6 +319,7 @@ void refresh_screen(void)
     buf_append(&buf, "\x1b[H", 3);
 
     draw_row_tildes(&buf);
+    draw_status_bar(&buf);
 
     // Move cursor to the home position
     char move_cmd[32];

@@ -27,6 +27,7 @@ typedef struct {
     text_row *t_rows;
     int row_offset;
     int col_offset;
+    char *filename;
 } editor_config;
 
 extern editor_config ec;

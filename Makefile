@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -std=c99
 SRC_DIR = src
-OBJECTS = main.o append_buffer.o editor.o kbd.o
+OBJECTS = main.o append_buffer.o editor.o kbd.o status_bar.o
 
 vpath %.h $(SRC_DIR)
 vpath %.c $(SRC_DIR)
