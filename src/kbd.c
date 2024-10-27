@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-int read_key()
+int read_key(void)
 {
     int read_res;
     char c;

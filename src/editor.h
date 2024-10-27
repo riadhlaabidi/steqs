@@ -31,15 +31,15 @@ typedef struct {
 
 extern editor_config ec;
 
-void disable_raw_mode();
+void disable_raw_mode(void);
 
-void enable_raw_mode();
+void enable_raw_mode(void);
 
-void init_editor();
+void init_editor(void);
 
-void refresh_screen();
+void refresh_screen(void);
 
-void process_key();
+void process_key(void);
 
 int get_cursor_pos(int *rows, int *cols);
 
@@ -55,4 +55,4 @@ void update_text_row(text_row *row);
 
 void draw_row_tildes(abuf *buf);
 
-void scroll();
+void scroll(void);

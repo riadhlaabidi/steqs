@@ -16,7 +16,7 @@
 
 editor_config ec;
 
-void init_editor()
+void init_editor(void)
 {
 
     enable_raw_mode();
@@ -261,24 +261,47 @@ void draw_row_tildes(abuf *buf)
     }
 }
 
-void scroll()
+int row_cx_to_rx(text_row *tr, int cx)
 {
-    ec.rx = ec.cx;
+    int rx = 0;
+    int j;
+
+    for (j = 0; j < cx; j++) {
+        if (tr->content[j] == '\t') {
+            rx += (TAB_STOP - 1) - (rx % TAB_STOP);
+        }
+        rx++;
+    }
+
+    return rx;
+}
+
+void scroll(void)
+{
+    ec.rx = 0;
+
+    if (ec.cy < ec.num_trows) {
+        ec.rx = row_cx_to_rx(&ec.t_rows[ec.cy], ec.cx);
+    }
+
     if (ec.cy < ec.row_offset) {
         ec.row_offset = ec.cy;
     }
+
     if (ec.cy >= ec.row_offset + ec.rows) {
         ec.row_offset = ec.cy - ec.rows + 1;
     }
+
     if (ec.rx < ec.col_offset) {
         ec.col_offset = ec.rx;
     }
+
     if (ec.rx >= ec.col_offset + ec.cols) {
         ec.col_offset = ec.rx - ec.cols + 1;
     }
 }
 
-void refresh_screen()
+void refresh_screen(void)
 {
     scroll();
     abuf buf = ABUF_INIT;
@@ -304,14 +327,14 @@ void refresh_screen()
     buf_free(&buf);
 }
 
-void disable_raw_mode()
+void disable_raw_mode(void)
 {
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &ec.default_settings) == -1) {
         DIE("tcsetattr: Unable to set changed terminal settings");
     }
 }
 
-void enable_raw_mode()
+void enable_raw_mode(void)
 {
     if (tcgetattr(STDIN_FILENO, &ec.default_settings) == -1) {
         DIE("tcgetattr: Unable to retrieve terminal settings");
@@ -328,9 +351,9 @@ void enable_raw_mode()
     }
 }
 
-editor_config *get_editor_config() { return &ec; }
+editor_config *get_editor_config(void) { return &ec; }
 
-void process_key()
+void process_key(void)
 {
     int c = read_key();
 
@@ -350,8 +373,15 @@ void process_key()
             move_cursor(c);
             break;
         case PAGE_UP:
+            ec.cy = ec.row_offset;
+            int i = ec.rows;
+            while (i--) {
+                move_cursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+            }
+            break;
         case PAGE_DOWN:
             {
+                ec.cy = MIN(ec.num_trows - 1, ec.row_offset + ec.rows - 1);
                 int i = ec.rows;
                 while (i--) {
                     move_cursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
@@ -362,7 +392,9 @@ void process_key()
             ec.cx = 0;
             break;
         case END:
-            ec.cx = ec.cols - 1;
+            if (ec.cy < ec.num_trows) {
+                ec.cx = ec.t_rows[ec.cy].size - 1;
+            }
             break;
     }
 }

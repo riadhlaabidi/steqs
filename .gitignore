@@ -53,3 +53,6 @@ dkms.conf
 
 # Binaries
 steqs
+
+.cache
+compile_commands.json

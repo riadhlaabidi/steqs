@@ -12,4 +12,4 @@ enum keys {
     DEL
 };
 
-int read_key();
+int read_key(void);
