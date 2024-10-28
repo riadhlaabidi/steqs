@@ -58,3 +58,7 @@ void update_text_row(text_row *row);
 void draw_row_tildes(abuf *buf);
 
 void scroll(void);
+
+void insert_char(int c);
+
+void save(void);

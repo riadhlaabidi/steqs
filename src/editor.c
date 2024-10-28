@@ -9,6 +9,8 @@
 #include "status_bar.h"
 #include "util.h"
 
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,7 +41,7 @@ void init_editor(void)
     // leave one line for status line and another for status msg
     ec.rows -= 2;
 
-    set_status_msg("Help: ^-q : Quit");
+    set_status_msg("Help: ^s Save | ^q Quit");
 }
 
 int get_cursor_pos(int *rows, int *cols)
@@ -369,13 +371,19 @@ void process_key(void)
     int c = read_key();
 
     switch (c) {
+        case '\r':
+            // TODO:
+            break;
         case CTRL_KEY('q'):
-            // Erase from the active position to the end of line.
-            // default param 0
+            // Erase all of the display – all lines are erased, changed to
+            // single-width, and the cursor does not move
             write(STDOUT_FILENO, "\x1b[2J", 4);
             // Move cursor to the home position
             write(STDOUT_FILENO, "\x1b[H", 3);
             exit(EXIT_SUCCESS);
+            break;
+        case CTRL_KEY('s'):
+            save();
             break;
         case ARROW_UP:
         case ARROW_DOWN:
@@ -392,7 +400,10 @@ void process_key(void)
             break;
         case PAGE_DOWN:
             {
-                ec.cy = MIN(ec.num_trows - 1, ec.row_offset + ec.rows - 1);
+                ec.cy = ec.row_offset + ec.rows - 1;
+                if (ec.cy > ec.num_trows) {
+                    ec.cy = ec.num_trows;
+                }
                 int i = ec.rows;
                 while (i--) {
                     move_cursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
@@ -407,5 +418,96 @@ void process_key(void)
                 ec.cx = ec.t_rows[ec.cy].size - 1;
             }
             break;
+        case CTRL_KEY('h'):
+        case BACKSPACE:
+        case DEL:
+            // TODO:
+            break;
+        case CTRL_KEY('l'):
+        case '\x1b':
+            break;
+        default:
+            insert_char(c);
+            break;
     }
+}
+
+void text_row_insert_char(text_row *tr, int pos, int c)
+{
+    if (pos < 0 || pos > tr->size) {
+        pos = tr->size;
+    }
+
+    tr->content = realloc(tr->content, tr->size + 2);
+    memmove(&tr->content[pos + 1], &tr->content[pos], tr->size - pos + 1);
+    tr->content[pos] = c;
+    tr->size++;
+
+    update_text_row(tr);
+}
+
+void insert_char(int c)
+{
+    if (ec.cy == ec.num_trows) {
+        append_text_row("", 0);
+    }
+
+    text_row_insert_char(&ec.t_rows[ec.cy], ec.cx, c);
+    ec.cx++;
+}
+
+char *rows_to_string(int *buf_len)
+{
+    int total_len = 0;
+    int i;
+
+    for (i = 0; i < ec.num_trows; ++i) {
+        // add one for the newline character
+        total_len += ec.t_rows[i].size + 1;
+    }
+
+    *buf_len = total_len;
+
+    char *buf = malloc(total_len);
+    char *tmp = buf;
+
+    for (i = 0; i < ec.num_trows; ++i) {
+        memcpy(tmp, ec.t_rows[i].content, ec.t_rows[i].size);
+        tmp += ec.t_rows[i].size;
+        *tmp = '\n';
+        tmp++;
+    }
+
+    return buf;
+}
+
+void save(void)
+{
+    if (ec.filename == NULL) {
+        set_status_msg("Cannot write: No file name");
+        return;
+    }
+
+    int len;
+    char *buf = rows_to_string(&len);
+
+    // create file if it does not exist
+    int fd = open(ec.filename, O_RDWR | O_CREAT,
+                  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH); /* 0644 permissions */
+    if (fd != -1) {
+        if (ftruncate(fd, len) != -1) {
+            if (write(fd, buf, len) == len) {
+                close(fd);
+                FREE(buf);
+                set_status_msg("\"%s\" %d Line%s, %d bytes written",
+                               ec.filename, ec.num_trows,
+                               ec.num_trows == 1 ? "" : "s", len);
+                return;
+            }
+        }
+        close(fd);
+    }
+
+    FREE(buf);
+    set_status_msg("Cannot write: I/O error: %s", strerror(errno));
 }
