@@ -30,13 +30,16 @@ void init_editor(void)
     ec.row_offset = 0;
     ec.col_offset = 0;
     ec.filename = NULL;
+    ec.status_msg[0] = '\0';
 
     if (get_window_size(&ec.rows, &ec.cols) == -1) {
         DIE("Unable to get window size");
     }
 
-    // leave one line for status line
-    ec.rows--;
+    // leave one line for status line and another for status msg
+    ec.rows -= 2;
+
+    set_status_msg("Help: ^-q : Quit");
 }
 
 int get_cursor_pos(int *rows, int *cols)
@@ -320,6 +323,7 @@ void refresh_screen(void)
 
     draw_row_tildes(&buf);
     draw_status_bar(&buf);
+    draw_message_bar(&buf);
 
     // Move cursor to the home position
     char move_cmd[32];

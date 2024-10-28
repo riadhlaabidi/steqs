@@ -1,7 +1,10 @@
+#include "status_bar.h"
 #include "append_buffer.h"
 #include "editor.h"
 
+#include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 void draw_status_bar(abuf *buf)
 {
@@ -33,4 +36,28 @@ void draw_status_bar(abuf *buf)
 
     // switch back to normal formatting
     buf_append(buf, "\x1b[m", 3);
+
+    // another line for status message
+    buf_append(buf, "\r\n", 2);
+}
+
+void draw_message_bar(abuf *buf)
+{
+    // clear row
+    buf_append(buf, "\x1b[K", 3);
+
+    int msg_len = strlen(ec.status_msg);
+    if (msg_len > ec.cols) {
+        msg_len = ec.cols;
+    }
+
+    buf_append(buf, ec.status_msg, msg_len);
+}
+
+void set_status_msg(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(ec.status_msg, sizeof(ec.status_msg), fmt, ap);
+    va_end(ap);
 }
