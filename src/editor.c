@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 editor_config ec;
+int quit_times = EDITOR_UNSAVED_QUIT_TIMES;
 
 void init_editor(void)
 {
@@ -376,6 +377,13 @@ void process_key(void)
             // TODO:
             break;
         case CTRL_KEY('q'):
+            if (ec.dirty && quit_times > 0) {
+                set_status_msg("Warning! File has unsaved changes. Press ^q %d "
+                               "more time%s to quit without saving changes.",
+                               quit_times, quit_times == 1 ? "" : "s");
+                quit_times--;
+                return;
+            }
             // Erase all of the display – all lines are erased, changed to
             // single-width, and the cursor does not move
             write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -431,6 +439,8 @@ void process_key(void)
             insert_char(c);
             break;
     }
+
+    quit_times = EDITOR_UNSAVED_QUIT_TIMES;
 }
 
 void text_row_insert_char(text_row *tr, int pos, int c)

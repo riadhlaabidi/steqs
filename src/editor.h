@@ -6,6 +6,7 @@
 
 #define EDITOR_VERSION "0.0.1"
 #define EDITOR_NAME "STEQS"
+#define EDITOR_UNSAVED_QUIT_TIMES 2
 
 #define TAB_STOP 8
 
@@ -28,7 +29,7 @@ typedef struct {
     int row_offset;
     int col_offset;
     char *filename;
-    char status_msg[80];
+    char status_msg[96];
     int dirty;
 } editor_config;
 
