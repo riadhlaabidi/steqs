@@ -29,6 +29,7 @@ typedef struct {
     int col_offset;
     char *filename;
     char status_msg[80];
+    int dirty;
 } editor_config;
 
 extern editor_config ec;

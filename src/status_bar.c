@@ -13,11 +13,11 @@ void draw_status_bar(abuf *buf)
     char status[80];
     char curr_line_status[80];
 
-    int len = snprintf(status, sizeof(status), "%.20s - %d line%c",
-                       ec.filename ? ec.filename : "[No name]", ec.num_trows,
-                       ec.num_trows == 1 ? '\0' : 's');
-    int cl_len = snprintf(curr_line_status, sizeof(curr_line_status), "%d/%d",
-                          ec.cy + 1, ec.num_trows);
+    int len = snprintf(status, sizeof(status), "%s%s",
+                       ec.filename ? ec.filename : "[No name]",
+                       ec.dirty ? "[+]" : "");
+    int cl_len = snprintf(curr_line_status, sizeof(curr_line_status), "%d:%d ",
+                          ec.cy + 1, ec.cx + 1);
     if (len > ec.cols) {
         len = ec.cols;
     }

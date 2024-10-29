@@ -33,6 +33,7 @@ void init_editor(void)
     ec.col_offset = 0;
     ec.filename = NULL;
     ec.status_msg[0] = '\0';
+    ec.dirty = 0;
 
     if (get_window_size(&ec.rows, &ec.cols) == -1) {
         DIE("Unable to get window size");
@@ -180,6 +181,7 @@ void open_file(char *filename)
     }
     FREE(line);
     fclose(fp);
+    ec.dirty = 0;
 }
 
 void append_text_row(char *content, size_t len)
@@ -200,6 +202,7 @@ void append_text_row(char *content, size_t len)
     update_text_row(&ec.t_rows[idx]);
 
     ec.num_trows++;
+    ec.dirty++;
 }
 
 void update_text_row(text_row *row)
@@ -364,8 +367,6 @@ void enable_raw_mode(void)
     }
 }
 
-editor_config *get_editor_config(void) { return &ec; }
-
 void process_key(void)
 {
     int c = read_key();
@@ -444,6 +445,7 @@ void text_row_insert_char(text_row *tr, int pos, int c)
     tr->size++;
 
     update_text_row(tr);
+    ec.dirty++;
 }
 
 void insert_char(int c)
@@ -502,6 +504,7 @@ void save(void)
                 set_status_msg("\"%s\" %d Line%s, %d bytes written",
                                ec.filename, ec.num_trows,
                                ec.num_trows == 1 ? "" : "s", len);
+                ec.dirty = 0;
                 return;
             }
         }
