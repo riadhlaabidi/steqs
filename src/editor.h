@@ -55,12 +55,18 @@ void open_file(char *filename);
 
 void append_text_row(char *content, size_t len);
 
+void delete_text_row(int pos);
+
 void update_text_row(text_row *row);
+
+void free_text_row(text_row *tr);
 
 void draw_row_tildes(abuf *buf);
 
 void scroll(void);
 
 void insert_char(int c);
+
+void delete_char(void);
 
 void save(void);

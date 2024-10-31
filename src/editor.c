@@ -9,6 +9,7 @@
 #include "status_bar.h"
 #include "util.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -204,6 +205,26 @@ void append_text_row(char *content, size_t len)
 
     ec.num_trows++;
     ec.dirty++;
+}
+
+void delete_text_row(int pos)
+{
+    if (pos < 0 || pos >= ec.num_trows)
+        return;
+
+    free_text_row(&ec.t_rows[pos]);
+
+    memmove(&ec.t_rows[pos], &ec.t_rows[pos + 1],
+            sizeof(text_row) * (ec.num_trows - pos - 1));
+
+    ec.num_trows--;
+    ec.dirty++;
+}
+
+void free_text_row(text_row *tr)
+{
+    FREE(tr->content);
+    FREE(tr->to_render);
 }
 
 void update_text_row(text_row *row)
@@ -429,8 +450,11 @@ void process_key(void)
             break;
         case CTRL_KEY('h'):
         case BACKSPACE:
+            delete_char();
+            break;
         case DEL:
-            // TODO:
+            move_cursor(ARROW_RIGHT);
+            delete_char();
             break;
         case CTRL_KEY('l'):
         case '\x1b':
@@ -458,6 +482,27 @@ void text_row_insert_char(text_row *tr, int pos, int c)
     ec.dirty++;
 }
 
+void text_row_delete_char(text_row *tr, int pos)
+{
+    if (pos < 0 || pos >= tr->size) {
+        return;
+    }
+    memmove(&tr->content[pos], &tr->content[pos + 1], tr->size - pos);
+    tr->size--;
+    update_text_row(tr);
+    ec.dirty++;
+}
+
+void text_row_append_string(text_row *tr, char *s, size_t len)
+{
+    tr->content = realloc(tr->content, tr->size + len + 1);
+    memcpy(&tr->content[tr->size], s, len);
+    tr->size += len;
+    tr->content[tr->size] = '\0';
+    update_text_row(tr);
+    ec.dirty++;
+}
+
 void insert_char(int c)
 {
     if (ec.cy == ec.num_trows) {
@@ -466,6 +511,29 @@ void insert_char(int c)
 
     text_row_insert_char(&ec.t_rows[ec.cy], ec.cx, c);
     ec.cx++;
+}
+
+void delete_char(void)
+{
+    if (ec.cy == ec.num_trows)
+        return;
+
+    if (ec.cx == 0 && ec.cy == 0)
+        return;
+
+    text_row *action_row = &ec.t_rows[ec.cy];
+
+    if (ec.cx > 0) {
+        text_row_delete_char(action_row, ec.cx - 1);
+        ec.cx--;
+    } else {
+        assert(ec.cx == 0);
+        ec.cx = ec.t_rows[ec.cy - 1].size;
+        text_row_append_string(&ec.t_rows[ec.cy - 1], action_row->content,
+                               action_row->size);
+        delete_text_row(ec.cy);
+        ec.cy--;
+    }
 }
 
 char *rows_to_string(int *buf_len)
