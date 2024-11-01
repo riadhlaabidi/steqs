@@ -1,10 +1,11 @@
+#include <stddef.h>
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
 #define _POSIX_C_SOURCE >= 200809L
 #define _GNU_SOURCE
 
-#include "editor.h"
 #include "append_buffer.h"
+#include "editor.h"
 #include "kbd.h"
 #include "status_bar.h"
 #include "util.h"
@@ -102,28 +103,22 @@ void move_cursor(int key)
             if (ec.cx > 0) {
                 ec.cx--;
             } else if (ec.cy > 0) {
+                assert(ec.cx == 0);
                 ec.cy--;
                 int rs = ec.t_rows[ec.cy].size;
                 if (rs > 0) {
-                    ec.cx = rs - 1;
+                    ec.cx = rs;
                 }
             }
             break;
         case ARROW_RIGHT:
-            if (row && ec.cx < row->size - 1) {
-                ec.cx++;
-            } else {
-                if (row) {
-                    if (row->size == 0) {
-                        if (ec.cy < ec.num_trows - 1) {
-                            ec.cy++;
-                            ec.cx = 0;
-                        }
-                    } else {
-                        if (ec.cy < ec.num_trows - 1) {
-                            ec.cy++;
-                            ec.cx = 0;
-                        }
+            if (row) {
+                if (ec.cx < row->size) {
+                    ec.cx++;
+                } else {
+                    if (ec.cy < ec.num_trows - 1) {
+                        ec.cy++;
+                        ec.cx = 0;
                     }
                 }
             }
@@ -179,29 +174,32 @@ void open_file(char *filename)
                (line[line_len - 1] == '\n' || line[line_len - 1] == '\r')) {
             line_len--;
         }
-        append_text_row(line, line_len);
+        insert_text_row(ec.num_trows, line, line_len);
     }
     FREE(line);
     fclose(fp);
     ec.dirty = 0;
 }
 
-void append_text_row(char *content, size_t len)
+void insert_text_row(int pos, char *content, size_t len)
 {
+    if (pos < 0 || pos > ec.num_trows)
+        return;
+
     ec.t_rows = realloc(ec.t_rows, sizeof(text_row) * (ec.num_trows + 1));
 
-    // Last index
-    int idx = ec.num_trows;
+    memmove(&ec.t_rows[pos + 1], &ec.t_rows[pos],
+            sizeof(text_row) * (ec.num_trows - pos));
 
-    ec.t_rows[idx].size = len;
-    ec.t_rows[idx].content = malloc(len + 1);
+    ec.t_rows[pos].size = len;
+    ec.t_rows[pos].content = malloc(len + 1);
 
-    memcpy(ec.t_rows[idx].content, content, len);
+    memcpy(ec.t_rows[pos].content, content, len);
 
-    ec.t_rows[idx].content[len] = '\0';
-    ec.t_rows[idx].render_size = 0;
-    ec.t_rows[idx].to_render = NULL;
-    update_text_row(&ec.t_rows[idx]);
+    ec.t_rows[pos].content[len] = '\0';
+    ec.t_rows[pos].render_size = 0;
+    ec.t_rows[pos].to_render = NULL;
+    update_text_row(&ec.t_rows[pos]);
 
     ec.num_trows++;
     ec.dirty++;
@@ -395,7 +393,7 @@ void process_key(void)
 
     switch (c) {
         case '\r':
-            // TODO:
+            insert_new_line();
             break;
         case CTRL_KEY('q'):
             if (ec.dirty && quit_times > 0) {
@@ -422,18 +420,23 @@ void process_key(void)
             move_cursor(c);
             break;
         case PAGE_UP:
-            ec.cy = ec.row_offset;
-            int i = ec.rows;
-            while (i--) {
-                move_cursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+            {
+                ec.cy = ec.row_offset;
+
+                int i = ec.rows;
+                while (i--) {
+                    move_cursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+                }
             }
             break;
         case PAGE_DOWN:
             {
                 ec.cy = ec.row_offset + ec.rows - 1;
-                if (ec.cy > ec.num_trows) {
-                    ec.cy = ec.num_trows;
+
+                if (ec.cy > ec.num_trows - 1) {
+                    ec.cy = ec.num_trows - 1;
                 }
+
                 int i = ec.rows;
                 while (i--) {
                     move_cursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
@@ -506,11 +509,32 @@ void text_row_append_string(text_row *tr, char *s, size_t len)
 void insert_char(int c)
 {
     if (ec.cy == ec.num_trows) {
-        append_text_row("", 0);
+        insert_text_row(ec.num_trows, "", 0);
     }
 
     text_row_insert_char(&ec.t_rows[ec.cy], ec.cx, c);
     ec.cx++;
+}
+
+void insert_new_line(void)
+{
+    if (ec.cx == 0) {
+        insert_text_row(ec.cy, "", 0);
+    } else {
+        text_row *curr = &ec.t_rows[ec.cy];
+        insert_text_row(ec.cy + 1, &curr->content[ec.cx], curr->size - ec.cx);
+
+        // insert_text_row reallocates the t_rows array, need to reassign curr
+        curr = &ec.t_rows[ec.cy];
+
+        curr->size = ec.cx;
+        /*curr->content = realloc(curr->content, ec.cx);*/
+        curr->content[curr->size] = '\0';
+        update_text_row(curr);
+    }
+
+    ec.cy++;
+    ec.cx = 0;
 }
 
 void delete_char(void)

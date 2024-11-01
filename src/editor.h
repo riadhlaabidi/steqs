@@ -53,7 +53,7 @@ int get_window_size(int *rows, int *cols);
 
 void open_file(char *filename);
 
-void append_text_row(char *content, size_t len);
+void insert_text_row(int pos, char *content, size_t len);
 
 void delete_text_row(int pos);
 
@@ -68,5 +68,7 @@ void scroll(void);
 void insert_char(int c);
 
 void delete_char(void);
+
+void insert_new_line(void);
 
 void save(void);
