@@ -1,9 +1,12 @@
 #include "status_bar.h"
 #include "append_buffer.h"
 #include "editor.h"
+#include "kbd.h"
 
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 void draw_status_bar(abuf *buf)
@@ -60,4 +63,36 @@ void set_status_msg(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(ec.status_msg, sizeof(ec.status_msg), fmt, ap);
     va_end(ap);
+}
+
+char *prompt(char *prompt)
+{
+    size_t buf_size = 128;
+    char *buf = malloc(buf_size);
+
+    size_t buf_len = 0;
+    buf[0] = '\0';
+
+    while (1) {
+        set_status_msg(prompt, buf);
+        refresh_screen();
+
+        int key = read_key();
+
+        // Pressed Enter and gave a file name
+        if (key == '\r') {
+            if (buf_len != 0) {
+                set_status_msg("");
+                return buf;
+            }
+        } else if (!iscntrl(key) && key < 128) {
+            // NOTE: (SHADY) Make buf bigger if reached max size
+            if (buf_len == buf_size - 1) {
+                buf_size *= 2;
+                buf = realloc(buf, buf_size);
+            }
+            buf[buf_len++] = key;
+            buf[buf_len] = '\0';
+        }
+    }
 }

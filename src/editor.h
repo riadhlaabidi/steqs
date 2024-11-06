@@ -45,10 +45,6 @@ void refresh_screen(void);
 
 void process_key(void);
 
-int get_cursor_pos(int *rows, int *cols);
-
-void move_cursor(int key);
-
 int get_window_size(int *rows, int *cols);
 
 void open_file(char *filename);

@@ -1,14 +1,7 @@
-#include <stddef.h>
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
 #define _POSIX_C_SOURCE >= 200809L
 #define _GNU_SOURCE
-
-#include "append_buffer.h"
-#include "editor.h"
-#include "kbd.h"
-#include "status_bar.h"
-#include "util.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -18,6 +11,13 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+
+#include "append_buffer.h"
+#include "cursor.h"
+#include "editor.h"
+#include "kbd.h"
+#include "status_bar.h"
+#include "util.h"
 
 editor_config ec;
 int quit_times = EDITOR_UNSAVED_QUIT_TIMES;
@@ -46,96 +46,6 @@ void init_editor(void)
     ec.rows -= 2;
 
     set_status_msg("Help: ^s Save | ^q Quit");
-}
-
-int get_cursor_pos(int *rows, int *cols)
-{
-    char buf[32];
-    size_t i = 0;
-
-    if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4) {
-        return -1;
-    }
-
-    while (i < sizeof(buf) - 1) {
-        if (read(STDIN_FILENO, &buf[i], 1) == -1) {
-            return -1;
-        }
-
-        if (buf[i] == 'R') {
-            break;
-        }
-        i++;
-    }
-    buf[i] = '\0';
-
-    if (buf[0] != '\x1b' || buf[1] != '[') {
-        return -1;
-    }
-
-    if (sscanf(&buf[2], "%d;%d", rows, cols) != 2) {
-        return -1;
-    }
-
-    return 0;
-}
-
-void move_cursor(int key)
-{
-    text_row *row = NULL;
-
-    if (ec.cy < ec.num_trows) {
-        row = &ec.t_rows[ec.cy];
-    }
-
-    switch (key) {
-        case ARROW_UP:
-            if (ec.cy > 0) {
-                ec.cy--;
-            }
-            break;
-        case ARROW_DOWN:
-            if (ec.cy < ec.num_trows - 1) {
-                ec.cy++;
-            }
-            break;
-        case ARROW_LEFT:
-            if (ec.cx > 0) {
-                ec.cx--;
-            } else if (ec.cy > 0) {
-                assert(ec.cx == 0);
-                ec.cy--;
-                int rs = ec.t_rows[ec.cy].size;
-                if (rs > 0) {
-                    ec.cx = rs;
-                }
-            }
-            break;
-        case ARROW_RIGHT:
-            if (row) {
-                if (ec.cx < row->size) {
-                    ec.cx++;
-                } else {
-                    if (ec.cy < ec.num_trows - 1) {
-                        ec.cy++;
-                        ec.cx = 0;
-                    }
-                }
-            }
-            break;
-    }
-
-    // change cursor pos to the end of the current row
-    // if the actual cursor pos is bigger than row's length.
-    if (ec.cy < ec.num_trows) {
-        row = &ec.t_rows[ec.cy];
-    }
-
-    int row_len = row ? row->size : 0;
-
-    if (ec.cx > row_len) {
-        ec.cx = row_len;
-    }
 }
 
 int get_window_size(int *rows, int *cols)
@@ -588,8 +498,9 @@ char *rows_to_string(int *buf_len)
 void save(void)
 {
     if (ec.filename == NULL) {
-        set_status_msg("Cannot write: No file name");
-        return;
+        ec.filename = prompt("Save file as: %s");
+        /*set_status_msg("Cannot write: No file name");*/
+        /*return;*/
     }
 
     int len;
