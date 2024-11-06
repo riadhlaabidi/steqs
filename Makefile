@@ -1,17 +1,27 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -pedantic -std=c99
+
 SRC_DIR = src
-OBJECTS = main.o append_buffer.o editor.o kbd.o status_bar.o
+BUILD_DIR = build
 
-vpath %.h $(SRC_DIR)
-vpath %.c $(SRC_DIR)
+CFLAGS = -Wall -Wextra -pedantic -std=c99 -I$(SRC_DIR)
 
-steqs: $(OBJECTS)
-	$(CC) $(CFLAGS) -o $@ $(OBJECTS)
+TARGET = steqs
 
-.PHONY: clean
+SOURCES := $(wildcard $(SRC_DIR)/*.c)
+OBJECTS := $(SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) $^ -o $@
+
+$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
 clean:
-	rm steqs $(OBJECTS) 
+	rm -rf $(BUILD_DIR) $(TARGET)
 
-
-
+.PHONY: all clean
