@@ -73,7 +73,9 @@ char *prompt(char *prompt)
     size_t buf_len = 0;
     buf[0] = '\0';
 
-    while (1) {
+    ec.prompting = 1;
+
+    while (ec.prompting) {
         set_status_msg(prompt, buf);
         refresh_screen();
 
@@ -83,7 +85,7 @@ char *prompt(char *prompt)
         if (key == '\r') {
             if (buf_len != 0) {
                 set_status_msg("");
-                return buf;
+                ec.prompting = 0;
             }
         } else if (!iscntrl(key) && key < 128) {
             // NOTE: (SHADY) Make buf bigger if reached max size
@@ -95,4 +97,6 @@ char *prompt(char *prompt)
             buf[buf_len] = '\0';
         }
     }
+
+    return buf;
 }

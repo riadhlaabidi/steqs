@@ -31,6 +31,7 @@ typedef struct {
     char *filename;
     char status_msg[96];
     int dirty;
+    int prompting;
 } editor_config;
 
 extern editor_config ec;

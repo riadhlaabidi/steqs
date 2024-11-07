@@ -37,6 +37,7 @@ void init_editor(void)
     ec.filename = NULL;
     ec.status_msg[0] = '\0';
     ec.dirty = 0;
+    ec.prompting = 0;
 
     if (get_window_size(&ec.rows, &ec.cols) == -1) {
         DIE("Unable to get window size");
@@ -260,10 +261,18 @@ void refresh_screen(void)
     draw_status_bar(&buf);
     draw_message_bar(&buf);
 
-    // Move cursor to the home position
+    // cursor position
+    int r = (ec.cy - ec.row_offset) + 1;
+    int c = (ec.cx - ec.col_offset) + 1;
+
+    if (ec.prompting) {
+        r = ec.rows + 2;
+        c = strlen(ec.status_msg) + 1;
+    }
+
+    // move cursor to position r, c
     char move_cmd[32];
-    snprintf(move_cmd, sizeof(move_cmd), "\x1b[%d;%dH",
-             (ec.cy - ec.row_offset) + 1, (ec.rx - ec.col_offset) + 1);
+    snprintf(move_cmd, sizeof(move_cmd), "\x1b[%d;%dH", r, c);
     buf_append(&buf, move_cmd, strlen(move_cmd));
 
     // Show the cursor
