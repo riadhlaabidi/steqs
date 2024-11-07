@@ -8,14 +8,14 @@ CFLAGS = -Wall -Wextra -pedantic -std=c99 -I$(SRC_DIR)
 TARGET = steqs
 
 SOURCES := $(wildcard $(SRC_DIR)/*.c)
-OBJECTS := $(SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+OBJECTS := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SOURCES))
 
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
 	$(CC) $^ -o $@
 
-$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR):
