@@ -5,7 +5,7 @@ Simple text editor.
 
 - Clone the repo
 ```bash
-git clone git@github.com:riadhlaabidi/steqs.git
+git clone https://github.com/riadhlaabidi/steqs.git
 ```
 
 - From inside `steqs` directory run:
