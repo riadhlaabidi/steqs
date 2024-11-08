@@ -508,8 +508,10 @@ void save(void)
 {
     if (ec.filename == NULL) {
         ec.filename = prompt("Save file as: %s");
-        /*set_status_msg("Cannot write: No file name");*/
-        /*return;*/
+        if (!ec.filename) {
+            set_status_msg("Saving cancelled");
+            return;
+        }
     }
 
     int len;

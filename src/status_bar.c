@@ -2,6 +2,7 @@
 #include "append_buffer.h"
 #include "editor.h"
 #include "kbd.h"
+#include "util.h"
 
 #include <ctype.h>
 #include <stdarg.h>
@@ -70,6 +71,10 @@ char *prompt(char *prompt)
     size_t buf_size = 128;
     char *buf = malloc(buf_size);
 
+    if (!buf) {
+        DIE("Failed to allocate memory");
+    }
+
     size_t buf_len = 0;
     buf[0] = '\0';
 
@@ -81,8 +86,18 @@ char *prompt(char *prompt)
 
         int key = read_key();
 
-        // Pressed Enter and gave a file name
-        if (key == '\r') {
+        if (key == DEL || key == CTRL_KEY('h') || key == BACKSPACE) {
+            if (buf_len > 0) {
+                buf[--buf_len] = '\0';
+            }
+        } else if (key == '\x1b') {
+            // cancelled
+            set_status_msg("");
+            free(buf);
+            ec.prompting = 0;
+            return NULL;
+        } else if (key == '\r') {
+            // Pressed Enter and gave a file name
             if (buf_len != 0) {
                 set_status_msg("");
                 ec.prompting = 0;
