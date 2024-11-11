@@ -15,6 +15,7 @@
 #include "append_buffer.h"
 #include "cursor.h"
 #include "editor.h"
+#include "find.h"
 #include "kbd.h"
 #include "status_bar.h"
 #include "util.h"
@@ -46,7 +47,7 @@ void init_editor(void)
     // leave one line for status line and another for status msg
     ec.rows -= 2;
 
-    set_status_msg("Help: ^s Save | ^q Quit");
+    set_status_msg("Help: ^s Save | ^q Quit | ^f Find");
 }
 
 int get_window_size(int *rows, int *cols)
@@ -206,19 +207,47 @@ void draw_row_tildes(abuf *buf)
     }
 }
 
+/**
+ * Converts cursor index from character-based into a rendering-based
+ * index after rendering escape character '\t' in a text row
+ */
 int row_cx_to_rx(text_row *tr, int cx)
 {
     int rx = 0;
-    int j;
+    int i;
 
-    for (j = 0; j < cx; j++) {
-        if (tr->content[j] == '\t') {
+    for (i = 0; i < cx; i++) {
+        if (tr->content[i] == '\t') {
             rx += (TAB_STOP - 1) - (rx % TAB_STOP);
         }
         rx++;
     }
 
     return rx;
+}
+
+/**
+ * Converts cursor index from rendering-based into a character based index
+ * reverting escape character '\t' rendering in a text row.
+ */
+int row_rx_to_cx(text_row *tr, int rx)
+{
+    int curr_rx = 0;
+    int cx;
+
+    for (cx = 0; cx < tr->size; cx++) {
+        if (tr->content[cx] == '\t') {
+            curr_rx += (TAB_STOP - 1) - (curr_rx % TAB_STOP);
+        }
+
+        curr_rx++;
+
+        if (curr_rx == rx) {
+            break;
+        }
+    }
+
+    return cx;
 }
 
 void scroll(void)
@@ -332,6 +361,11 @@ void process_key(void)
         case CTRL_KEY('s'):
             save();
             break;
+
+        case CTRL_KEY('f'):
+            find();
+            break;
+
         case ARROW_UP:
         case ARROW_DOWN:
         case ARROW_LEFT:

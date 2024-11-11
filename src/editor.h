@@ -58,6 +58,8 @@ void update_text_row(text_row *row);
 
 void free_text_row(text_row *tr);
 
+int row_rx_to_cx(text_row *tr, int rx);
+
 void draw_row_tildes(abuf *buf);
 
 void scroll(void);
