@@ -21,6 +21,7 @@ int read_key(void)
         if (read(STDIN_FILENO, &seq[0], 1) != 1) {
             return '\x1b';
         }
+
         if (read(STDIN_FILENO, &seq[1], 1) != 1) {
             return '\x1b';
         }

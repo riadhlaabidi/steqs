@@ -6,7 +6,7 @@
 
 void find()
 {
-    char *query = prompt("Search: %s");
+    char *query = prompt("Search: %s", NULL);
 
     if (!query)
         return;

@@ -21,7 +21,7 @@ typedef struct {
     struct termios default_settings;
     int cx;   // cursor column position
     int cy;   // cursor row position
-    int rx;   // cursor column position in rendered text
+    int rx;   // cursor column position in the rendered text row
     int rows; // terminal window height
     int cols; // terminal window width
     int num_trows;

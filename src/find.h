@@ -1,3 +1,3 @@
 #pragma once
 
-void find();
+void find(void);

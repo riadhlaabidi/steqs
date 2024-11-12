@@ -17,6 +17,7 @@
 #include "editor.h"
 #include "find.h"
 #include "kbd.h"
+#include "log.h"
 #include "status_bar.h"
 #include "util.h"
 
@@ -142,7 +143,7 @@ void update_text_row(text_row *row)
     int tabs = 0;
     int i;
 
-    for (i = 0; i < tabs; i++) {
+    for (i = 0; i < row->size; i++) {
         if (row->content[i] == '\t') {
             tabs++;
         }
@@ -223,6 +224,8 @@ int row_cx_to_rx(text_row *tr, int cx)
         rx++;
     }
 
+    LOG(DEBUG, "tr->content: %s, cx = %d, rx = %d", tr->content, cx, rx);
+
     return rx;
 }
 
@@ -291,8 +294,10 @@ void refresh_screen(void)
     draw_message_bar(&buf);
 
     // cursor position
+    /*int r = (ec.cy - ec.row_offset) + 1;*/
+    /*int c = (ec.cx - ec.col_offset) + 1;*/
     int r = (ec.cy - ec.row_offset) + 1;
-    int c = (ec.cx - ec.col_offset) + 1;
+    int c = (ec.rx - ec.col_offset) + 1;
 
     if (ec.prompting) {
         r = ec.rows + 2;
@@ -541,7 +546,7 @@ char *rows_to_string(int *buf_len)
 void save(void)
 {
     if (ec.filename == NULL) {
-        ec.filename = prompt("Save file as: %s");
+        ec.filename = prompt("Save file as: %s", NULL);
         if (!ec.filename) {
             set_status_msg("Saving cancelled");
             return;

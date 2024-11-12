@@ -66,7 +66,7 @@ void set_status_msg(const char *fmt, ...)
     va_end(ap);
 }
 
-char *prompt(char *prompt)
+char *prompt(char *prompt, void (*callback)(char *, int))
 {
     size_t buf_size = 128;
     char *buf = malloc(buf_size);
@@ -86,30 +86,49 @@ char *prompt(char *prompt)
 
         int key = read_key();
 
-        if (key == DEL || key == CTRL_KEY('h') || key == BACKSPACE) {
-            if (buf_len > 0) {
-                buf[--buf_len] = '\0';
-            }
-        } else if (key == '\x1b') {
-            // cancelled
-            set_status_msg("");
-            free(buf);
-            ec.prompting = 0;
-            return NULL;
-        } else if (key == '\r') {
-            // Pressed Enter and gave a file name
-            if (buf_len != 0) {
+        switch (key) {
+            case DEL:
+            case CTRL_KEY('h'):
+            case BACKSPACE:
+                if (buf_len > 0) {
+                    buf[--buf_len] = '\0';
+                }
+
+                if (callback)
+                    callback(buf, key);
+                break;
+
+            case '\x1b': // cancelling
                 set_status_msg("");
+                if (callback)
+                    callback(buf, key);
+                FREE(buf);
                 ec.prompting = 0;
-            }
-        } else if (!iscntrl(key) && key < 128) {
-            // NOTE: (SHADY) Make buf bigger if reached max size
-            if (buf_len == buf_size - 1) {
-                buf_size *= 2;
-                buf = realloc(buf, buf_size);
-            }
-            buf[buf_len++] = key;
-            buf[buf_len] = '\0';
+                break;
+
+            case '\r': // Pressed Enter and gave a file name
+                if (buf_len != 0) {
+                    set_status_msg("");
+                    ec.prompting = 0;
+                    if (callback)
+                        callback(buf, key);
+                }
+                break;
+
+            default:
+                if (!iscntrl(key) && key < 128) {
+                    // NOTE: (SHADY) Make buf bigger if reached max size
+                    if (buf_len == buf_size - 1) {
+                        buf_size *= 2;
+                        buf = realloc(buf, buf_size);
+                    }
+                    buf[buf_len++] = key;
+                    buf[buf_len] = '\0';
+                }
+
+                if (callback)
+                    callback(buf, key);
+                break;
         }
     }
 
