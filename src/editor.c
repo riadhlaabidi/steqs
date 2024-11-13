@@ -149,12 +149,18 @@ void update_text_row(text_row *row)
         }
     }
 
-    free(row->to_render);
-    row->to_render = malloc(row->size + tabs * (TAB_STOP - 1) + 1);
+    int new_size = row->size + tabs * (TAB_STOP - 1) + 1;
+    FREE(row->to_render);
+    row->to_render = malloc(new_size);
+
+    if (!row->to_render) {
+        DIE("Failed to allocate memory");
+    }
 
     int idx = 0;
     for (i = 0; i < row->size; i++) {
         if (row->content[i] == '\t') {
+            row->to_render[idx++] = ' ';
             while (idx % TAB_STOP != 0) {
                 row->to_render[idx++] = ' ';
             }
@@ -224,8 +230,6 @@ int row_cx_to_rx(text_row *tr, int cx)
         rx++;
     }
 
-    LOG(DEBUG, "tr->content: %s, cx = %d, rx = %d", tr->content, cx, rx);
-
     return rx;
 }
 
@@ -245,8 +249,8 @@ int row_rx_to_cx(text_row *tr, int rx)
 
         curr_rx++;
 
-        if (curr_rx == rx) {
-            break;
+        if (curr_rx > rx) {
+            return cx;
         }
     }
 
@@ -486,7 +490,6 @@ void insert_new_line(void)
         curr = &ec.t_rows[ec.cy];
 
         curr->size = ec.cx;
-        /*curr->content = realloc(curr->content, ec.cx);*/
         curr->content[curr->size] = '\0';
         update_text_row(curr);
     }
