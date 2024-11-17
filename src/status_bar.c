@@ -1,61 +1,44 @@
 #include "status_bar.h"
-#include "append_buffer.h"
 #include "editor.h"
-#include "kbd.h"
 #include "util.h"
 
 #include <ctype.h>
+#include <ncurses.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-void draw_status_bar(abuf *buf)
+void draw_status_bar()
 {
-    // switch to inverted colors
-    buf_append(buf, "\x1b[7m", 4);
-    char status[80];
+    int i;
+
     char curr_line_status[80];
-
-    int len = snprintf(status, sizeof(status), "%s%s",
-                       ec.filename ? ec.filename : "[No name]",
-                       ec.dirty ? "[+]" : "");
-    int cl_len = snprintf(curr_line_status, sizeof(curr_line_status), "%d:%d ",
+    int cl_len = snprintf(curr_line_status, sizeof(curr_line_status), "%d:%d",
                           ec.cy + 1, ec.cx + 1);
-    if (len > ec.cols) {
-        len = ec.cols;
-    }
 
-    buf_append(buf, status, len);
+    char *filename = ec.filename ? ec.filename : "[No name]";
+    char *dirty = ec.dirty ? "[+]" : "";
 
-    while (len < ec.cols) {
-        if (ec.cols - len == cl_len) {
-            buf_append(buf, curr_line_status, cl_len);
-            break;
-        } else {
-            buf_append(buf, " ", 1);
-            len++;
+    move(ec.rows, 0);
+    /*clrtoeol();*/
+    attron(A_REVERSE);
+
+    printw("%s%s", filename, dirty);
+
+    if (cl_len > 0) {
+        int pad_len = ec.cols - (strlen(filename) + strlen(dirty) + cl_len);
+        for (i = 0; i < pad_len; ++i) {
+            addch(' ');
         }
+        printw("%s", curr_line_status);
     }
 
-    // switch back to normal formatting
-    buf_append(buf, "\x1b[m", 3);
+    attroff(A_REVERSE);
 
-    // another line for status message
-    buf_append(buf, "\r\n", 2);
-}
-
-void draw_message_bar(abuf *buf)
-{
-    // clear row
-    buf_append(buf, "\x1b[K", 3);
-
-    int msg_len = strlen(ec.status_msg);
-    if (msg_len > ec.cols) {
-        msg_len = ec.cols;
-    }
-
-    buf_append(buf, ec.status_msg, msg_len);
+    move(ec.rows + 1, 0);
+    clrtoeol();
+    printw("%s", ec.status_msg);
 }
 
 void set_status_msg(const char *fmt, ...)
@@ -84,14 +67,15 @@ char *prompt(char *prompt, void (*callback)(char *, int))
         set_status_msg(prompt, buf);
         refresh_screen();
 
-        int key = read_key();
+        int key = getch();
 
         switch (key) {
-            case DEL:
             case CTRL_KEY('h'):
-            case BACKSPACE:
+            case KEY_BACKSPACE:
+            case KEY_DC:
                 if (buf_len > 0) {
                     buf[--buf_len] = '\0';
+                    delch();
                 }
 
                 if (callback)
@@ -106,7 +90,9 @@ char *prompt(char *prompt, void (*callback)(char *, int))
                 ec.prompting = 0;
                 break;
 
-            case '\r': // Pressed Enter and gave a file name
+            case CTRL_KEY('m'):
+            case CTRL_KEY('j'):
+            case KEY_ENTER: // Pressed Enter and gave a file name
                 if (buf_len != 0) {
                     set_status_msg("");
                     ec.prompting = 0;

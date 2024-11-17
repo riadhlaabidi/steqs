@@ -4,20 +4,19 @@
 #define _GNU_SOURCE
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "append_buffer.h"
 #include "cursor.h"
 #include "editor.h"
 #include "find.h"
-#include "kbd.h"
-#include "log.h"
 #include "status_bar.h"
 #include "util.h"
 
@@ -26,8 +25,10 @@ int quit_times = EDITOR_UNSAVED_QUIT_TIMES;
 
 void init_editor(void)
 {
-
-    enable_raw_mode();
+    initscr();
+    raw();                /* enable raw mode */
+    noecho();             /* disable echoing user input */
+    keypad(stdscr, TRUE); /* enable reading function keys F1..., arrows, etc */
 
     ec.cx = 0;
     ec.cy = 0;
@@ -41,30 +42,12 @@ void init_editor(void)
     ec.dirty = 0;
     ec.prompting = 0;
 
-    if (get_window_size(&ec.rows, &ec.cols) == -1) {
-        DIE("Unable to get window size");
-    }
+    getmaxyx(stdscr, ec.rows, ec.cols); /* get window size */
 
-    // leave one line for status line and another for status msg
+    // leave two lines for status bar
     ec.rows -= 2;
 
-    set_status_msg("Help: ^s Save | ^q Quit | ^f Find");
-}
-
-int get_window_size(int *rows, int *cols)
-{
-    struct winsize ws;
-
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
-        if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) {
-            return -1;
-        }
-        return get_cursor_pos(rows, cols);
-    }
-
-    *rows = ws.ws_row;
-    *cols = ws.ws_col;
-    return 0;
+    set_status_msg(USAGE_STATUS_MSG);
 }
 
 void open_file(char *filename)
@@ -173,44 +156,26 @@ void update_text_row(text_row *row)
     row->render_size = idx;
 }
 
-void draw_row_tildes(abuf *buf)
+void draw_row_tildes()
 {
     int i;
 
+    erase();
     for (i = 0; i < ec.rows; i++) {
         int file_row = i + ec.row_offset;
         if (ec.num_trows > file_row) {
-            int len = ec.t_rows[file_row].render_size - ec.col_offset;
-            if (len < 0) {
-                len = 0;
-            }
-            if (len > ec.cols) {
-                len = ec.cols;
-            }
-            buf_append(buf, &ec.t_rows[file_row].to_render[ec.col_offset], len);
+            mvprintw(i, 0, "%s", &ec.t_rows[file_row].to_render[ec.col_offset]);
         } else {
-            buf_append(buf, "~", 1);
-            if (ec.num_trows == 0 && i == ec.rows / 3) {
-                char welcome[30];
-                int welcome_len =
-                    snprintf(welcome, sizeof(welcome), " %s - Version %s",
-                             EDITOR_NAME, EDITOR_VERSION);
-                int padding = (ec.cols - welcome_len - 1) / 2;
-
-                while (padding > 0) {
-                    buf_append(buf, " ", 1);
-                    padding--;
+            mvprintw(i, 0, "~");
+            if (ec.num_trows == 0) {
+                char wlc[48];
+                int wlc_len = snprintf(wlc, sizeof(wlc), "%s - Version %s",
+                                       EDITOR_NAME, EDITOR_VERSION);
+                if (wlc_len > 0) {
+                    mvprintw(ec.rows / 2, (ec.cols - wlc_len) / 2, "%s", wlc);
                 }
-
-                buf_append(buf, welcome, welcome_len);
             }
         }
-
-        // erase from the active position to the end of line.
-        // default param 0
-        buf_append(buf, "\x1b[K", 3);
-
-        buf_append(buf, "\r\n", 2);
     }
 }
 
@@ -257,7 +222,7 @@ int row_rx_to_cx(text_row *tr, int rx)
     return cx;
 }
 
-void scroll(void)
+void steqs_scroll(void)
 {
     ec.rx = 0;
 
@@ -284,72 +249,31 @@ void scroll(void)
 
 void refresh_screen(void)
 {
-    scroll();
-    abuf buf = ABUF_INIT;
+    steqs_scroll();
 
-    // Hide the cursor to get rid of flickering effect
-    buf_append(&buf, "\x1b[?25l", 6);
+    draw_row_tildes();
+    draw_status_bar();
 
-    // Move cursor to the home position
-    buf_append(&buf, "\x1b[H", 3);
-
-    draw_row_tildes(&buf);
-    draw_status_bar(&buf);
-    draw_message_bar(&buf);
-
-    // cursor position
-    /*int r = (ec.cy - ec.row_offset) + 1;*/
-    /*int c = (ec.cx - ec.col_offset) + 1;*/
-    int r = (ec.cy - ec.row_offset) + 1;
-    int c = (ec.rx - ec.col_offset) + 1;
+    int r = (ec.cy - ec.row_offset);
+    int c = (ec.rx - ec.col_offset);
 
     if (ec.prompting) {
         r = ec.rows + 2;
         c = strlen(ec.status_msg) + 1;
     }
 
-    // move cursor to position r, c
-    char move_cmd[32];
-    snprintf(move_cmd, sizeof(move_cmd), "\x1b[%d;%dH", r, c);
-    buf_append(&buf, move_cmd, strlen(move_cmd));
-
-    // Show the cursor
-    buf_append(&buf, "\x1b[?25h", 6);
-
-    write(STDOUT_FILENO, buf.buf, buf.len);
-    buf_free(&buf);
-}
-
-void disable_raw_mode(void)
-{
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &ec.default_settings) == -1) {
-        DIE("tcsetattr: Unable to set changed terminal settings");
-    }
-}
-
-void enable_raw_mode(void)
-{
-    if (tcgetattr(STDIN_FILENO, &ec.default_settings) == -1) {
-        DIE("tcgetattr: Unable to retrieve terminal settings");
-    }
-    atexit(disable_raw_mode);
-
-    struct termios raw = ec.default_settings;
-    cfmakeraw(&raw);
-    raw.c_cc[VMIN] = 0;
-    raw.c_cc[VTIME] = 1;
-
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
-        DIE("tcsetattr: Unable to set changed terminal settings");
-    }
+    move(r, c);
+    refresh();
 }
 
 void process_key(void)
 {
-    int c = read_key();
+    int c = getch();
 
     switch (c) {
-        case '\r':
+        case CTRL_KEY('m'):
+        case CTRL_KEY('j'):
+        case KEY_ENTER:
             insert_new_line();
             break;
         case CTRL_KEY('q'):
@@ -360,11 +284,7 @@ void process_key(void)
                 quit_times--;
                 return;
             }
-            // Erase all of the display – all lines are erased, changed to
-            // single-width, and the cursor does not move
-            write(STDOUT_FILENO, "\x1b[2J", 4);
-            // Move cursor to the home position
-            write(STDOUT_FILENO, "\x1b[H", 3);
+            endwin();
             exit(EXIT_SUCCESS);
             break;
         case CTRL_KEY('s'):
@@ -375,55 +295,56 @@ void process_key(void)
             find();
             break;
 
-        case ARROW_UP:
-        case ARROW_DOWN:
-        case ARROW_LEFT:
-        case ARROW_RIGHT:
+        case KEY_UP:
+        case KEY_DOWN:
+        case KEY_LEFT:
+        case KEY_RIGHT:
             move_cursor(c);
             break;
-        case PAGE_UP:
-            {
-                ec.cy = ec.row_offset;
-
-                int i = ec.rows;
-                while (i--) {
-                    move_cursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
-                }
-            }
-            break;
-        case PAGE_DOWN:
-            {
-                ec.cy = ec.row_offset + ec.rows - 1;
-
-                if (ec.cy > ec.num_trows - 1) {
-                    ec.cy = ec.num_trows - 1;
-                }
-
-                int i = ec.rows;
-                while (i--) {
-                    move_cursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
-                }
-            }
-            break;
-        case HOME:
-            ec.cx = 0;
-            break;
-        case END:
-            if (ec.cy < ec.num_trows) {
-                ec.cx = ec.t_rows[ec.cy].size - 1;
-            }
-            break;
-        case CTRL_KEY('h'):
-        case BACKSPACE:
+        /*case PAGE_UP:*/
+        /*    {*/
+        /*        ec.cy = ec.row_offset;*/
+        /**/
+        /*        int i = ec.rows;*/
+        /*        while (i--) {*/
+        /*            move_cursor(c == PAGE_UP ? ARROW_UP :
+         * ARROW_DOWN);*/
+        /*        }*/
+        /*    }*/
+        /*    break;*/
+        /*case PAGE_DOWN:*/
+        /*    {*/
+        /*        ec.cy = ec.row_offset + ec.rows - 1;*/
+        /**/
+        /*        if (ec.cy > ec.num_trows - 1) {*/
+        /*            ec.cy = ec.num_trows - 1;*/
+        /*        }*/
+        /**/
+        /*        int i = ec.rows;*/
+        /*        while (i--) {*/
+        /*            move_cursor(c == PAGE_UP ? ARROW_UP :
+         * ARROW_DOWN);*/
+        /*        }*/
+        /*    }*/
+        /*    break;*/
+        /*case HOME:*/
+        /*    ec.cx = 0;*/
+        /*    break;*/
+        /*case END:*/
+        /*    if (ec.cy < ec.num_trows) {*/
+        /*        ec.cx = ec.t_rows[ec.cy].size - 1;*/
+        /*    }*/
+        /*    break;*/
+        case KEY_BACKSPACE:
             delete_char();
             break;
-        case DEL:
-            move_cursor(ARROW_RIGHT);
-            delete_char();
-            break;
-        case CTRL_KEY('l'):
-        case '\x1b':
-            break;
+        /*case DEL:*/
+        /*    move_cursor(ARROW_RIGHT);*/
+        /*    delete_char();*/
+        /*    break;*/
+        /*case CTRL_KEY('l'):*/
+        /*case '\x1b':*/
+        /*    break;*/
         default:
             insert_char(c);
             break;
@@ -475,6 +396,7 @@ void insert_char(int c)
     }
 
     text_row_insert_char(&ec.t_rows[ec.cy], ec.cx, c);
+    printw("%c", c);
     ec.cx++;
 }
 
@@ -486,7 +408,8 @@ void insert_new_line(void)
         text_row *curr = &ec.t_rows[ec.cy];
         insert_text_row(ec.cy + 1, &curr->content[ec.cx], curr->size - ec.cx);
 
-        // insert_text_row reallocates the t_rows array, need to reassign curr
+        // insert_text_row reallocates the t_rows array, need to reassign
+        // curr
         curr = &ec.t_rows[ec.cy];
 
         curr->size = ec.cx;
@@ -500,8 +423,8 @@ void insert_new_line(void)
 
 void delete_char(void)
 {
-    if (ec.cy == ec.num_trows)
-        return;
+    /*if (ec.cy == ec.num_trows)*/
+    /*    return;*/
 
     if (ec.cx == 0 && ec.cy == 0)
         return;
@@ -509,14 +432,16 @@ void delete_char(void)
     text_row *action_row = &ec.t_rows[ec.cy];
 
     if (ec.cx > 0) {
-        text_row_delete_char(action_row, ec.cx - 1);
         ec.cx--;
+        text_row_delete_char(action_row, ec.cx);
+        mvdelch(ec.cy, ec.cx);
     } else {
         assert(ec.cx == 0);
         ec.cx = ec.t_rows[ec.cy - 1].size;
         text_row_append_string(&ec.t_rows[ec.cy - 1], action_row->content,
                                action_row->size);
         delete_text_row(ec.cy);
+        deleteln();
         ec.cy--;
     }
 }

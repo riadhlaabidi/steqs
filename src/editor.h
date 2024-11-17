@@ -1,13 +1,12 @@
 #pragma once
 
-#include "append_buffer.h"
 #include <stdlib.h>
 #include <termios.h>
 
 #define EDITOR_VERSION "0.0.1"
 #define EDITOR_NAME "STEQS"
 #define EDITOR_UNSAVED_QUIT_TIMES 2
-
+#define USAGE_STATUS_MSG "Help: ^s Save | ^q Quit | ^f Find"
 #define TAB_STOP 8
 
 typedef struct {
@@ -36,10 +35,6 @@ typedef struct {
 
 extern editor_config ec;
 
-void disable_raw_mode(void);
-
-void enable_raw_mode(void);
-
 void init_editor(void);
 
 void refresh_screen(void);
@@ -60,9 +55,9 @@ void free_text_row(text_row *tr);
 
 int row_rx_to_cx(text_row *tr, int rx);
 
-void draw_row_tildes(abuf *buf);
+void draw_row_tildes();
 
-void scroll(void);
+void steqs_scroll(void);
 
 void insert_char(int c);
 
