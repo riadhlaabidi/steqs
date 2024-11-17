@@ -41,8 +41,6 @@ void refresh_screen(void);
 
 void process_key(void);
 
-int get_window_size(int *rows, int *cols);
-
 void open_file(char *filename);
 
 void insert_text_row(int pos, char *content, size_t len);
