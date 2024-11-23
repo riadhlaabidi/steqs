@@ -325,6 +325,9 @@ void disable_raw_mode(void)
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &ec.default_settings) == -1) {
         DIE("tcsetattr: Unable to set changed terminal settings");
     }
+
+    // switch back from alternate buffer to main screen
+    write(STDOUT_FILENO, "\x1b[?1049l", 8);
 }
 
 void enable_raw_mode(void)
@@ -332,6 +335,7 @@ void enable_raw_mode(void)
     if (tcgetattr(STDIN_FILENO, &ec.default_settings) == -1) {
         DIE("tcgetattr: Unable to retrieve terminal settings");
     }
+
     atexit(disable_raw_mode);
 
     struct termios raw = ec.default_settings;
@@ -342,6 +346,9 @@ void enable_raw_mode(void)
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
         DIE("tcsetattr: Unable to set changed terminal settings");
     }
+
+    // enable alternate buffer
+    write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }
 
 void process_key(void)
