@@ -1,6 +1,7 @@
 #pragma once
 
 #include "editor.h"
+#include "log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,7 +16,6 @@
 
 #define DIE(s)                                                                 \
     do {                                                                       \
-        refresh_screen();                                                      \
-        perror(s);                                                             \
+        LOG(ERROR, s);                                                         \
         exit(EXIT_FAILURE);                                                    \
     } while (0)
