@@ -71,3 +71,5 @@ void delete_char(void);
 void insert_new_line(void);
 
 void save(void);
+
+void handle_win_resize(int sig);

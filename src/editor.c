@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +18,6 @@
 #include "editor.h"
 #include "find.h"
 #include "kbd.h"
-#include "log.h"
 #include "status_bar.h"
 #include "util.h"
 
@@ -586,4 +586,15 @@ void save(void)
 
     FREE(buf);
     set_status_msg("Cannot write: I/O error: %s", strerror(errno));
+}
+
+void handle_win_resize(int sig)
+{
+    if (get_window_size(&ec.rows, &ec.cols) == -1) {
+        DIE("Could not get window size");
+    }
+
+    ec.rows -= 2;
+    refresh_screen();
+    signal(sig, handle_win_resize);
 }

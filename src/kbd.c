@@ -10,8 +10,13 @@ int read_key(void)
     char c;
 
     while ((read_res = read(STDIN_FILENO, &c, 1)) != 1) {
-        if (read_res == -1 && errno != EAGAIN) {
-            DIE("read: Unable to read input");
+        if (read_res == -1) {
+            if (errno == EINTR) {
+                // keep going on interruption when handling signal (SIGWINCH)
+                ;
+            } else if (errno != EAGAIN) {
+                DIE("read: Unable to read input");
+            }
         }
     }
 

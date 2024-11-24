@@ -106,7 +106,7 @@ char *prompt(char *prompt, void (*callback)(char *, int))
                 ec.prompting = 0;
                 break;
 
-            case '\r': // Pressed Enter and gave a file name
+            case '\r':
                 if (buf_len != 0) {
                     set_status_msg("");
                     ec.prompting = 0;
