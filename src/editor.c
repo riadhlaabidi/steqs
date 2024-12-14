@@ -4,6 +4,7 @@
 #define _GNU_SOURCE
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -17,6 +18,7 @@
 #include "cursor.h"
 #include "editor.h"
 #include "find.h"
+#include "highlight.h"
 #include "kbd.h"
 #include "status_bar.h"
 #include "util.h"
@@ -112,6 +114,7 @@ void insert_text_row(int pos, char *content, size_t len)
     ec.t_rows[pos].content[len] = '\0';
     ec.t_rows[pos].render_size = 0;
     ec.t_rows[pos].to_render = NULL;
+    ec.t_rows[pos].highlight = NULL;
     update_text_row(&ec.t_rows[pos]);
 
     ec.num_trows++;
@@ -136,6 +139,7 @@ void free_text_row(text_row *tr)
 {
     FREE(tr->content);
     FREE(tr->to_render);
+    FREE(tr->highlight);
 }
 
 void update_text_row(text_row *row)
@@ -171,6 +175,9 @@ void update_text_row(text_row *row)
 
     row->to_render[idx] = '\0';
     row->render_size = idx;
+
+    // update syntax for highliting
+    update_syntax(row);
 }
 
 void draw_row_tildes(abuf *buf)
@@ -187,7 +194,23 @@ void draw_row_tildes(abuf *buf)
             if (len > ec.cols) {
                 len = ec.cols;
             }
-            buf_append(buf, &ec.t_rows[file_row].to_render[ec.col_offset], len);
+
+            char *line = &ec.t_rows[file_row].to_render[ec.col_offset];
+            unsigned char *hl = &ec.t_rows[file_row].highlight[ec.col_offset];
+            int j;
+            for (j = 0; j < len; j++) {
+                if (hl[j] == HL_NORMAL) {
+                    buf_append(buf, "\x1b[39m", 5);
+                    buf_append(buf, &line[j], 1);
+                } else {
+                    int color = syntax_to_color(hl[j]);
+                    char b[16];
+                    int clen = snprintf(b, sizeof(b), "\x1b[%dm", color);
+                    buf_append(buf, b, clen);
+                    buf_append(buf, &line[j], 1);
+                }
+            }
+            buf_append(buf, "\x1b[39m", 5);
         } else {
             buf_append(buf, "~", 1);
             if (ec.num_trows == 0 && i == ec.rows / 3) {

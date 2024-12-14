@@ -15,6 +15,7 @@ typedef struct {
     int render_size;
     char *content;
     char *to_render;
+    unsigned char *highlight;
 } text_row;
 
 typedef struct {
