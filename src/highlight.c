@@ -20,8 +20,10 @@ int syntax_to_color(int highlight)
 {
     switch (highlight) {
         case HL_NUMBER:
-            return 31;
+            return 31; // red
+        case HL_MATCH:
+            return 34; // blue
         default:
-            return 37;
+            return 37; // white
     }
 }

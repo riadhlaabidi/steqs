@@ -4,7 +4,6 @@
 #define _GNU_SOURCE
 
 #include <assert.h>
-#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -197,16 +196,23 @@ void draw_row_tildes(abuf *buf)
 
             char *line = &ec.t_rows[file_row].to_render[ec.col_offset];
             unsigned char *hl = &ec.t_rows[file_row].highlight[ec.col_offset];
+            int current_color = -1;
             int j;
             for (j = 0; j < len; j++) {
                 if (hl[j] == HL_NORMAL) {
-                    buf_append(buf, "\x1b[39m", 5);
+                    if (current_color != -1) {
+                        buf_append(buf, "\x1b[39m", 5);
+                        current_color = -1;
+                    }
                     buf_append(buf, &line[j], 1);
                 } else {
                     int color = syntax_to_color(hl[j]);
-                    char b[16];
-                    int clen = snprintf(b, sizeof(b), "\x1b[%dm", color);
-                    buf_append(buf, b, clen);
+                    if (color != current_color) {
+                        current_color = color;
+                        char b[16];
+                        int clen = snprintf(b, sizeof(b), "\x1b[%dm", color);
+                        buf_append(buf, b, clen);
+                    }
                     buf_append(buf, &line[j], 1);
                 }
             }

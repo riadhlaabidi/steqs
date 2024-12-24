@@ -2,6 +2,7 @@
 
 #include "editor.h"
 #include "find.h"
+#include "highlight.h"
 #include "kbd.h"
 #include "status_bar.h"
 #include "util.h"
@@ -25,6 +26,15 @@ void find_callback(char *query, int key)
     static int last_match = -1;
     static int direction = 1;
     static int matches = 0;
+
+    static int previous_hl_line;
+    static char *previous_hl = NULL;
+
+    if (previous_hl) {
+        memcpy(ec.t_rows[previous_hl_line].highlight, previous_hl,
+               ec.t_rows[previous_hl_line].render_size);
+        FREE(previous_hl);
+    }
 
     if (key == '\r' || key == '\x1b') {
         last_match = -1;
@@ -68,6 +78,12 @@ void find_callback(char *query, int key)
             ec.cy = current;
             ec.cx = row_rx_to_cx(row, match - row->to_render);
             ec.row_offset = ec.num_trows;
+
+            previous_hl_line = current;
+            previous_hl = malloc(row->render_size);
+            memcpy(previous_hl, row->highlight, row->render_size);
+            memset(&row->highlight[match - row->to_render], HL_MATCH,
+                   strlen(query));
             break;
         }
     }
