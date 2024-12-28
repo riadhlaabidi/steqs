@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCLUDE_SRC_KBD_H_
+#define INCLUDE_SRC_KBD_H_
 
 enum keys {
     BACKSPACE = 127,
@@ -14,3 +15,5 @@ enum keys {
 };
 
 int read_key(void);
+
+#endif // INCLUDE_SRC_KBD_H_

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCLUDE_SRC_APPEND_BUFFER_H_
+#define INCLUDE_SRC_APPEND_BUFFER_H_
 
 #include <stdlib.h>
 
@@ -18,3 +19,5 @@ void buf_append(abuf *buf, const char *s, size_t len);
  * Frees the allocated internal buffer
  */
 void buf_free(abuf *bf);
+
+#endif // INCLUDE_SRC_APPEND_BUFFER_H_
