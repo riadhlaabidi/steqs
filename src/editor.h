@@ -1,8 +1,10 @@
-#pragma once
+#ifndef INCLUDE_SRC_EDITOR_H_
+#define INCLUDE_SRC_EDITOR_H_
 
-#include "append_buffer.h"
 #include <stdlib.h>
 #include <termios.h>
+
+#include "append_buffer.h"
 
 #define EDITOR_VERSION "0.0.1"
 #define EDITOR_NAME "STEQS"
@@ -19,7 +21,14 @@ typedef struct {
 } text_row;
 
 typedef struct {
+    char const *file_type;
+    char const **file_match;
+    int flags;
+} syntax;
+
+typedef struct {
     struct termios default_settings;
+    syntax *syntax;
     int cx;   // cursor column position
     int cy;   // cursor row position
     int rx;   // cursor column position in the rendered text row
@@ -74,3 +83,5 @@ void insert_new_line(void);
 void save(void);
 
 void handle_win_resize(int sig);
+
+#endif // INCLUDE_SRC_EDITOR_H_

@@ -41,6 +41,7 @@ void init_editor(void)
     ec.status_msg[0] = '\0';
     ec.dirty = 0;
     ec.prompting = 0;
+    ec.syntax = NULL;
 
     if (get_window_size(&ec.rows, &ec.cols) == -1) {
         DIE("Unable to get window size");
@@ -72,6 +73,9 @@ void open_file(char *filename)
 {
     FREE(ec.filename);
     ec.filename = strdup(filename);
+
+    // select syntax highlighting based on file type
+    select_syntax_highlight();
 
     FILE *fp = fopen(filename, "r");
 
@@ -590,6 +594,7 @@ void save(void)
             set_status_msg("Saving cancelled");
             return;
         }
+        select_syntax_highlight();
     }
 
     int len;

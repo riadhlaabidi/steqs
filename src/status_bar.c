@@ -1,14 +1,14 @@
-#include "status_bar.h"
-#include "append_buffer.h"
-#include "editor.h"
-#include "kbd.h"
-#include "util.h"
-
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "append_buffer.h"
+#include "editor.h"
+#include "kbd.h"
+#include "status_bar.h"
+#include "util.h"
 
 void draw_status_bar(abuf *buf)
 {
@@ -20,8 +20,10 @@ void draw_status_bar(abuf *buf)
     int len = snprintf(status, sizeof(status), "%s%s",
                        ec.filename ? ec.filename : "[No name]",
                        ec.dirty ? "[+]" : "");
-    int cl_len = snprintf(curr_line_status, sizeof(curr_line_status), "%d:%d ",
-                          ec.cy + 1, ec.cx + 1);
+    int cl_len =
+        snprintf(curr_line_status, sizeof(curr_line_status), "%s | %d:%d ",
+                 ec.syntax ? ec.syntax->file_type : "No file type", ec.cy + 1,
+                 ec.cx + 1);
     if (len > ec.cols) {
         len = ec.cols;
     }
