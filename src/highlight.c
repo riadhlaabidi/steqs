@@ -6,8 +6,8 @@
 
 char const *C_highlight_extensions[] = {".c", ".h", ".cpp", NULL};
 
-syntax HIGHLIGHT_DB[] = {
-    {"c", C_highlight_extensions, HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS}};
+syntax HIGHLIGHT_DB[] = {{"c", C_highlight_extensions, "//",
+                          HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS}};
 
 static int is_separator(int c)
 {
@@ -24,6 +24,9 @@ void update_syntax(text_row *tr)
         return;
     }
 
+    char const *cmt_start = ec.syntax->single_line_comment_start;
+    int cmt_start_len = cmt_start ? strlen(cmt_start) : 0;
+
     int prev_separator = 1;
     int quote = 0;
     int i = 0;
@@ -38,6 +41,13 @@ void update_syntax(text_row *tr)
         }
 
         char c = tr->to_render[i];
+
+        if (cmt_start_len && !quote) {
+            if (!strncmp(&tr->to_render[i], cmt_start, cmt_start_len)) {
+                memset(&tr->highlight[i], HL_COMMENT, tr->render_size - i);
+                break;
+            }
+        }
 
         if (ec.syntax->flags & HL_HIGHLIGHT_STRINGS) {
             if (quote) { // we're still inside a string
@@ -120,6 +130,8 @@ int syntax_to_color(int highlight)
             return 32; // green
         case HL_MATCH:
             return 34; // blue
+        case HL_COMMENT:
+            return 36; // cyan
         default:
             return 37; // white
     }

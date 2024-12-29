@@ -23,6 +23,7 @@ typedef struct {
 typedef struct {
     char const *file_type;
     char const **file_match;
+    char const *single_line_comment_start;
     int flags;
 } syntax;
 

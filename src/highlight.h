@@ -8,7 +8,7 @@
 
 #define HIGHLIGHT_DB_ENTRIES (sizeof(HIGHLIGHT_DB) / sizeof(HIGHLIGHT_DB[0]))
 
-enum highlight { HL_NORMAL = 0, HL_STRING, HL_NUMBER, HL_MATCH };
+enum highlight { HL_NORMAL = 0, HL_STRING, HL_NUMBER, HL_COMMENT, HL_MATCH };
 
 void select_syntax_highlight();
 
