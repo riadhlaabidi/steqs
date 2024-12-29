@@ -6,7 +6,8 @@
 
 char const *C_highlight_extensions[] = {".c", ".h", ".cpp", NULL};
 
-syntax HIGHLIGHT_DB[] = {{"c", C_highlight_extensions, HL_HIGHLIGHT_NUMBERS}};
+syntax HIGHLIGHT_DB[] = {
+    {"c", C_highlight_extensions, HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS}};
 
 static int is_separator(int c)
 {
@@ -24,7 +25,9 @@ void update_syntax(text_row *tr)
     }
 
     int prev_separator = 1;
+    int quote = 0;
     int i = 0;
+
     while (i < tr->render_size) {
         unsigned char prev_highlight;
 
@@ -35,6 +38,28 @@ void update_syntax(text_row *tr)
         }
 
         char c = tr->to_render[i];
+
+        if (ec.syntax->flags & HL_HIGHLIGHT_STRINGS) {
+            if (quote) { // we're still inside a string
+                tr->highlight[i] = HL_STRING;
+                if (c == quote) { // matching second quote
+                    if (i - 1 > 0 && tr->to_render[i - 1] != '\\') {
+                        // if this is not an escaped quote, end the string
+                        quote = 0;
+                        prev_separator = 1;
+                    }
+                }
+                i++;
+                continue;
+            } else {
+                if (c == '"' || c == '\'') {
+                    quote = c; // start of a string
+                    tr->highlight[i] = HL_STRING;
+                    i++;
+                    continue;
+                }
+            }
+        }
 
         if (ec.syntax->flags & HL_HIGHLIGHT_NUMBERS) {
             if ((isdigit(c) &&
@@ -91,6 +116,8 @@ int syntax_to_color(int highlight)
     switch (highlight) {
         case HL_NUMBER:
             return 31; // red
+        case HL_STRING:
+            return 32; // green
         case HL_MATCH:
             return 34; // blue
         default:
