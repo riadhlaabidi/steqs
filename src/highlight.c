@@ -4,10 +4,21 @@
 #include "editor.h"
 #include "highlight.h"
 
-char const *C_highlight_extensions[] = {".c", ".h", ".cpp", NULL};
+#define HIGHLIGHT_DB_ENTRIES (sizeof(HIGHLIGHT_DB) / sizeof(HIGHLIGHT_DB[0]))
 
-syntax HIGHLIGHT_DB[] = {{"c", C_highlight_extensions, "//",
-                          HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS}};
+char const *C_highlight_extensions[] = {".c", ".h", ".cpp", NULL};
+char const *C_highlight_keywords[] = {
+    "switch", "case",     "default", "for",    "while",   "if",    "else",
+    "break",  "continue", "return",  "struct", "typedef", "union", "static",
+    "inline", "enum",     "class",   "int",    "float",   "long",  "double",
+    "char",   "unsigned", "signed",  "void",   NULL};
+
+syntax HIGHLIGHT_DB[] = {
+    {.file_type = "C",
+     .file_match = C_highlight_extensions,
+     .keywords = C_highlight_keywords,
+     .single_line_comment_start = "//",
+     .flags = HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS}};
 
 static int is_separator(int c)
 {
@@ -82,12 +93,31 @@ void update_syntax(text_row *tr)
             }
         }
 
+        char const **keywords = ec.syntax->keywords;
+        if (prev_separator) {
+            int j = 0;
+            while (keywords[j]) {
+                int keyword_len = strlen(keywords[j]);
+                if (strncmp(&tr->to_render[i], keywords[j], keyword_len) == 0 &&
+                    is_separator(tr->to_render[i + keyword_len])) {
+                    memset(&tr->highlight[i], HL_KEYWORD, keyword_len);
+                    i += keyword_len;
+                    break;
+                }
+                j++;
+            }
+            if (keywords[j] != NULL) {
+                prev_separator = 0;
+                continue;
+            }
+        }
+
         prev_separator = is_separator(c);
         i++;
     }
 }
 
-void select_syntax_highlight()
+void select_syntax_highlight(void)
 {
     ec.syntax = NULL;
 
@@ -116,7 +146,7 @@ void select_syntax_highlight()
 
                 return;
             }
-            i++;
+            j++;
         }
     }
 }
@@ -128,6 +158,8 @@ int syntax_to_color(int highlight)
             return 31; // red
         case HL_STRING:
             return 32; // green
+        case HL_KEYWORD:
+            return 33; // yellow
         case HL_MATCH:
             return 34; // blue
         case HL_COMMENT:

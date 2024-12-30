@@ -6,11 +6,16 @@
 #define HL_HIGHLIGHT_NUMBERS (1 << 0)
 #define HL_HIGHLIGHT_STRINGS (1 << 1)
 
-#define HIGHLIGHT_DB_ENTRIES (sizeof(HIGHLIGHT_DB) / sizeof(HIGHLIGHT_DB[0]))
+enum highlight {
+    HL_NORMAL = 0,
+    HL_STRING,
+    HL_NUMBER,
+    HL_COMMENT,
+    HL_MATCH,
+    HL_KEYWORD,
+};
 
-enum highlight { HL_NORMAL = 0, HL_STRING, HL_NUMBER, HL_COMMENT, HL_MATCH };
-
-void select_syntax_highlight();
+void select_syntax_highlight(void);
 
 void update_syntax(text_row *tr);
 
