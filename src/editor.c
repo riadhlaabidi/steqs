@@ -4,6 +4,7 @@
 #define _GNU_SOURCE
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -203,7 +204,28 @@ void draw_row_tildes(abuf *buf)
             int current_color = -1;
             int j;
             for (j = 0; j < len; j++) {
-                if (hl[j] == HL_NORMAL) {
+                if (iscntrl(line[j])) { // non printable characters
+                    // non alphabetic control characters are printed as '?'
+                    char symbol = '?';
+                    if (line[j] <= 26) {
+                        // if it is an alphabetic control character we print the
+                        // related capital letter (A..Z) which comes after the
+                        // '@' character in ASCII
+                        symbol = '@' + line[j];
+
+                        // switch to inverted colors
+                        buf_append(buf, "\x1b[7m", 4);
+                        buf_append(buf, &symbol, 1);
+                        // switch back from inverted colors
+                        buf_append(buf, "\x1b[m", 3);
+                        if (current_color != -1) {
+                            char b[16];
+                            int clen = snprintf(b, sizeof(b), "\x1b[%dm",
+                                                current_color);
+                            buf_append(buf, b, clen);
+                        }
+                    }
+                } else if (hl[j] == HL_NORMAL) {
                     if (current_color != -1) {
                         buf_append(buf, "\x1b[39m", 5);
                         current_color = -1;
