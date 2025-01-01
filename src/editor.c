@@ -212,18 +212,17 @@ void draw_row_tildes(abuf *buf)
                         // related capital letter (A..Z) which comes after the
                         // '@' character in ASCII
                         symbol = '@' + line[j];
-
-                        // switch to inverted colors
-                        buf_append(buf, "\x1b[7m", 4);
-                        buf_append(buf, &symbol, 1);
-                        // switch back from inverted colors
-                        buf_append(buf, "\x1b[m", 3);
-                        if (current_color != -1) {
-                            char b[16];
-                            int clen = snprintf(b, sizeof(b), "\x1b[%dm",
-                                                current_color);
-                            buf_append(buf, b, clen);
-                        }
+                    }
+                    // switch to inverted colors
+                    buf_append(buf, "\x1b[7m", 4);
+                    buf_append(buf, &symbol, 1);
+                    // switch back from inverted colors
+                    buf_append(buf, "\x1b[m", 3);
+                    if (current_color != -1) {
+                        char b[16];
+                        int clen =
+                            snprintf(b, sizeof(b), "\x1b[%dm", current_color);
+                        buf_append(buf, b, clen);
                     }
                 } else if (hl[j] == HL_NORMAL) {
                     if (current_color != -1) {
