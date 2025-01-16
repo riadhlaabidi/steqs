@@ -18,6 +18,8 @@ syntax HIGHLIGHT_DB[] = {
      .file_match = C_highlight_extensions,
      .keywords = C_highlight_keywords,
      .single_line_comment_start = "//",
+     .multiline_comment_start = "/*",
+     .multiline_comment_end = "*/",
      .flags = HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS}};
 
 static int is_separator(int c)
@@ -35,13 +37,20 @@ void update_syntax(text_row *tr)
         return;
     }
 
-    char const *cmt_start = ec.syntax->single_line_comment_start;
-    int cmt_start_len = cmt_start ? strlen(cmt_start) : 0;
+    char const *scs = ec.syntax->single_line_comment_start;
+    char const *mcs = ec.syntax->multiline_comment_start;
+    char const *mce = ec.syntax->multiline_comment_end;
+
+    int scs_len = scs ? strlen(scs) : 0;
+    int mcs_len = mcs ? strlen(mcs) : 0;
+    int mce_len = mce ? strlen(mce) : 0;
 
     int prev_separator = 1;
     int quote = 0;
-    int i = 0;
+    int multiline_comment =
+        (tr->index > 0 && ec.t_rows[tr->index - 1].highlight_open_comment);
 
+    int i = 0;
     while (i < tr->render_size) {
         unsigned char prev_highlight;
 
@@ -53,10 +62,34 @@ void update_syntax(text_row *tr)
 
         char c = tr->to_render[i];
 
-        if (cmt_start_len && !quote) {
-            if (!strncmp(&tr->to_render[i], cmt_start, cmt_start_len)) {
+        // Highlight single line comments except the ones that are inside
+        // a string or a multiline comment
+        if (scs_len && !quote && !multiline_comment) {
+            if (!strncmp(&tr->to_render[i], scs, scs_len)) {
                 memset(&tr->highlight[i], HL_COMMENT, tr->render_size - i);
                 break;
+            }
+        }
+
+        // Highlight multiline comments
+        if (mcs_len && mce_len && !quote) {
+            if (multiline_comment) {
+                tr->highlight[i] = HL_COMMENT;
+                if (strncmp(&tr->to_render[i], mce, mce_len) == 0) {
+                    memset(&tr->highlight[i], HL_MULTILINE_COMMENT, mce_len);
+                    i += mce_len;
+                    multiline_comment = 0;
+                    prev_separator = 1;
+                    continue;
+                } else {
+                    i++;
+                    continue;
+                }
+            } else if (strncmp(&tr->to_render[i], mcs, mcs_len) == 0) {
+                memset(&tr->highlight[i], HL_MULTILINE_COMMENT, mcs_len);
+                i += mcs_len;
+                multiline_comment = 1;
+                continue;
             }
         }
 
@@ -115,6 +148,12 @@ void update_syntax(text_row *tr)
         prev_separator = is_separator(c);
         i++;
     }
+
+    int changed = (tr->highlight_open_comment != multiline_comment);
+    tr->highlight_open_comment = multiline_comment;
+    if (changed && tr->index + 1 < ec.num_trows) {
+        update_syntax(&ec.t_rows[tr->index + 1]);
+    }
 }
 
 void select_syntax_highlight(void)
@@ -163,6 +202,7 @@ int syntax_to_color(int highlight)
         case HL_MATCH:
             return 34; // blue
         case HL_COMMENT:
+        case HL_MULTILINE_COMMENT:
             return 36; // cyan
         default:
             return 37; // white

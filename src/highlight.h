@@ -11,6 +11,7 @@ enum highlight {
     HL_STRING,
     HL_NUMBER,
     HL_COMMENT,
+    HL_MULTILINE_COMMENT,
     HL_MATCH,
     HL_KEYWORD,
 };

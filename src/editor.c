@@ -110,15 +110,20 @@ void insert_text_row(int pos, char *content, size_t len)
     memmove(&ec.t_rows[pos + 1], &ec.t_rows[pos],
             sizeof(text_row) * (ec.num_trows - pos));
 
+    for (int i = pos + 1; i <= ec.num_trows; ++i) {
+        ec.t_rows[i].index++;
+    }
+
+    ec.t_rows[pos].index = pos;
     ec.t_rows[pos].size = len;
     ec.t_rows[pos].content = malloc(len + 1);
-
     memcpy(ec.t_rows[pos].content, content, len);
-
     ec.t_rows[pos].content[len] = '\0';
     ec.t_rows[pos].render_size = 0;
     ec.t_rows[pos].to_render = NULL;
     ec.t_rows[pos].highlight = NULL;
+    ec.t_rows[pos].highlight_open_comment = 0;
+
     update_text_row(&ec.t_rows[pos]);
 
     ec.num_trows++;
@@ -134,6 +139,10 @@ void delete_text_row(int pos)
 
     memmove(&ec.t_rows[pos], &ec.t_rows[pos + 1],
             sizeof(text_row) * (ec.num_trows - pos - 1));
+
+    for (int i = pos; i < ec.num_trows - 1; ++i) {
+        ec.t_rows[i].index--;
+    }
 
     ec.num_trows--;
     ec.dirty++;

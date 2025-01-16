@@ -13,11 +13,13 @@
 #define TAB_STOP 8
 
 typedef struct {
+    int index;
     int size;
     int render_size;
     char *content;
     char *to_render;
     unsigned char *highlight;
+    int highlight_open_comment;
 } text_row;
 
 typedef struct {
@@ -25,6 +27,8 @@ typedef struct {
     char const **file_match;
     char const **keywords;
     char const *single_line_comment_start;
+    char const *multiline_comment_start;
+    char const *multiline_comment_end;
     int flags;
 } syntax;
 
