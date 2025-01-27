@@ -361,8 +361,6 @@ void refresh_screen(void)
     draw_message_bar(&buf);
 
     // cursor position
-    /*int r = (ec.cy - ec.row_offset) + 1;*/
-    /*int c = (ec.cx - ec.col_offset) + 1;*/
     int r = (ec.cy - ec.row_offset) + 1;
     int c = (ec.rx - ec.col_offset) + 1;
 

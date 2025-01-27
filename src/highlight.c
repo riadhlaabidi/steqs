@@ -7,20 +7,40 @@
 #define HIGHLIGHT_DB_ENTRIES (sizeof(HIGHLIGHT_DB) / sizeof(HIGHLIGHT_DB[0]))
 
 char const *C_highlight_extensions[] = {".c", ".h", ".cpp", NULL};
+char const *Go_highlight_extensions[] = {".go", NULL};
+
 char const *C_highlight_keywords[] = {
     "switch", "case",     "default", "for",    "while",   "if",    "else",
     "break",  "continue", "return",  "struct", "typedef", "union", "static",
     "inline", "enum",     "class",   "int",    "float",   "long",  "double",
     "char",   "unsigned", "signed",  "void",   NULL};
 
-syntax HIGHLIGHT_DB[] = {
-    {.file_type = "C",
-     .file_match = C_highlight_extensions,
-     .keywords = C_highlight_keywords,
-     .single_line_comment_start = "//",
-     .multiline_comment_start = "/*",
-     .multiline_comment_end = "*/",
-     .flags = HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS}};
+char const *Go_highlight_keywords[] = {
+    "break",  "default", "func",     "interface", "select",      "case",
+    "defer",  "go",      "map",      "struct",    "chan",        "else",
+    "goto",   "package", "switch",   "const",     "fallthrough", "if",
+    "range",  "type",    "continue", "for",       "import",      "return",
+    "var",    "any",     "bool",     "uint8",     "uint16",      "uint32",
+    "uint64", "uint",    "uintptr",  "int8",      "int16",       "int32",
+    "int64",  "int",     "float32",  "float64",   "complex64",   "complex128",
+    "byte",   "rune",    NULL};
+
+syntax HIGHLIGHT_DB[] = {{.file_type = "C",
+                          .file_match = C_highlight_extensions,
+                          .keywords = C_highlight_keywords,
+                          .single_line_comment_start = "//",
+                          .multiline_comment_start = "/*",
+                          .multiline_comment_end = "*/",
+                          .flags = HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+                         {.file_type = "Go",
+                          .file_match = Go_highlight_extensions,
+                          .keywords = Go_highlight_keywords,
+                          .single_line_comment_start = "//",
+                          .multiline_comment_start = "/*",
+                          .multiline_comment_end = "*/",
+                          .flags = HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS}
+
+};
 
 static int is_separator(int c)
 {
