@@ -9,6 +9,7 @@
 #define EDITOR_VERSION "0.0.1"
 #define EDITOR_NAME "STEQS"
 #define EDITOR_UNSAVED_QUIT_TIMES 2
+#define EDITOR_DEFAULT_LINE_NUMBER_PADDING 5
 
 #define TAB_STOP 8
 
@@ -48,6 +49,7 @@ typedef struct {
     char status_msg[96];
     int dirty;
     int prompting;
+    int line_number_padding;
 } editor_config;
 
 extern editor_config ec;

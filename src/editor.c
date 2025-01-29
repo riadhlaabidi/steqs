@@ -43,6 +43,7 @@ void init_editor(void)
     ec.dirty = 0;
     ec.prompting = 0;
     ec.syntax = NULL;
+    ec.line_number_padding = 0;
 
     if (get_window_size(&ec.rows, &ec.cols) == -1) {
         DIE("Unable to get window size");
@@ -193,13 +194,30 @@ void update_text_row(text_row *row)
     update_syntax(row);
 }
 
+void draw_line_number(abuf *buf, int line_number)
+{
+    int left_padding = ec.line_number_padding - count_digits(line_number) - 1;
+
+    while (left_padding > 0) {
+        buf_append(buf, " ", 1);
+        left_padding--;
+    }
+
+    char b[12];
+    buf_append(buf, "\x1b[90m", 5); // dark grey foreground
+    int len = snprintf(b, sizeof(b), "%d", line_number);
+    buf_append(buf, b, len);
+    buf_append(buf, "\x1b[39m", 5); // back to default foreground
+    buf_append(buf, " ", 1);
+}
+
 void draw_row_tildes(abuf *buf)
 {
     int i;
-
     for (i = 0; i < ec.rows; i++) {
         int file_row = i + ec.row_offset;
         if (ec.num_trows > file_row) {
+            draw_line_number(buf, file_row + 1);
             int len = ec.t_rows[file_row].render_size - ec.col_offset;
             if (len < 0) {
                 len = 0;
@@ -353,6 +371,14 @@ void refresh_screen(void)
     // Hide the cursor to get rid of flickering effect
     buf_append(&buf, "\x1b[?25l", 6);
 
+    if (ec.num_trows) {
+        // Two spaces padding before & after the line number
+        ec.line_number_padding = count_digits(ec.num_trows) + 2;
+        if (ec.line_number_padding < EDITOR_DEFAULT_LINE_NUMBER_PADDING) {
+            ec.line_number_padding = EDITOR_DEFAULT_LINE_NUMBER_PADDING;
+        }
+    }
+
     // Move cursor to the home position
     buf_append(&buf, "\x1b[H", 3);
 
@@ -362,7 +388,7 @@ void refresh_screen(void)
 
     // cursor position
     int r = (ec.cy - ec.row_offset) + 1;
-    int c = (ec.rx - ec.col_offset) + 1;
+    int c = (ec.rx - ec.col_offset + ec.line_number_padding) + 1;
 
     if (ec.prompting) {
         r = ec.rows + 2;
