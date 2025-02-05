@@ -240,10 +240,11 @@ void draw_row_tildes(abuf *buf)
                         // '@' character in ASCII
                         symbol = '@' + line[j];
                     }
-                    // switch to inverted colors
-                    buf_append(buf, "\x1b[7m", 4);
+                    // switch to dark grey foreground
+                    buf_append(buf, "\x1b[90m", 5);
+                    buf_append(buf, "^", 1);
                     buf_append(buf, &symbol, 1);
-                    // switch back from inverted colors
+                    // switch back to default foreground
                     buf_append(buf, "\x1b[m", 3);
                     if (current_color != -1) {
                         char b[16];
@@ -307,6 +308,8 @@ int row_cx_to_rx(text_row *tr, int cx)
     for (i = 0; i < cx; i++) {
         if (tr->content[i] == '\t') {
             rx += (TAB_STOP - 1) - (rx % TAB_STOP);
+        } else if (iscntrl(tr->content[i])) {
+            rx++;
         }
         rx++;
     }
@@ -321,21 +324,29 @@ int row_cx_to_rx(text_row *tr, int cx)
 int row_rx_to_cx(text_row *tr, int rx)
 {
     int curr_rx = 0;
-    int cx;
+    int i;
 
-    for (cx = 0; cx < tr->size; cx++) {
-        if (tr->content[cx] == '\t') {
+    for (i = 0; i < tr->size; i++) {
+        if (tr->content[i] == '\t') {
             curr_rx += (TAB_STOP - 1) - (curr_rx % TAB_STOP);
+        } else if (iscntrl(tr->content[i])) {
+            curr_rx++;
         }
 
         curr_rx++;
 
         if (curr_rx > rx) {
-            return cx;
+            // Example: [\t][a][b] would be rendered as [........][a][b]
+            // while converting index rx=3 from the rendered content to its
+            // character index cx: curr_rx is 8 for i = 0, curr_rx > rx, means
+            // that rx points into the 8 space rendered tab character, which is
+            // of index i = 0 in the character-based content array, so we stop
+            // right there.
+            return i;
         }
     }
 
-    return cx;
+    return i;
 }
 
 void scroll(void)
