@@ -12,7 +12,7 @@ static int cy_before_find;
 static int r_offset_before_find;
 static int c_offset_before_find;
 
-void restore_cursor_pos()
+void restore_cursor_pos(void)
 {
 
     ec.cy = cy_before_find;
@@ -93,7 +93,7 @@ void find_callback(char *query, int key)
     }
 }
 
-void find()
+void find(void)
 {
     cx_before_find = ec.cx;
     cy_before_find = ec.cy;
